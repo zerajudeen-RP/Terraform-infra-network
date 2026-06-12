@@ -1,0 +1,53 @@
+variable "name" {
+  type = string
+}
+
+variable "environment" {
+  type = string
+}
+
+variable "vpc_cidr" {
+  description = "VPC CIDR — only used when ipam_pool_id is empty. When IPAM is active, subnets use aws_vpc.this.cidr_block internally."
+  type        = string
+  default     = ""
+}
+
+variable "azs" {
+  type = list(string)
+}
+
+variable "tgw_id" {
+  type = string
+}
+
+variable "tgw_core_rt_id" {
+  type = string
+}
+
+variable "gwlb_endpoint_service_name" {
+  description = "GWLB endpoint service name from the inspect VPC"
+  type        = string
+}
+
+variable "spoke_cidrs" {
+  description = "Spoke VPC CIDRs — ALB routes traffic to these via TGW"
+  type        = list(string)
+  default     = []
+}
+
+variable "ipam_pool_id" {
+  description = "IPAM pool ID — when set, VPC CIDR is assigned by IPAM"
+  type        = string
+  default     = ""
+}
+
+variable "ipam_netmask_length" {
+  description = "Netmask length for IPAM VPC allocation"
+  type        = number
+  default     = 23
+}
+
+variable "tags" {
+  type    = map(string)
+  default = {}
+}
