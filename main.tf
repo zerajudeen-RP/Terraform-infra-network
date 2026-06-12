@@ -137,3 +137,96 @@ module "tgw_routes" {
 
   tags = local.common_tags
 }
+
+###############################################################
+# Network Firewall — deployed in Inspect VPC firewall subnets
+#
+# Endpoints are created per AZ. The inspect_vpc module's firewall
+# subnet route tables already point 0.0.0.0/0 → NAT GW, but for
+# the TGW attach subnet RTs we wire traffic through the firewall
+# endpoints instead of (or alongside) the GWLB endpoints.
+# Both can coexist: GWLB handles N-S inbound via ingress VPC,
+# Network Firewall handles E-W + egress in the inspect VPC.
+###############################################################
+module "network_firewall" {
+  source = "./modules/network_firewall"
+
+  name        = var.name
+  environment = var.environment
+
+  vpc_id     = module.inspect_vpc.vpc_id
+  subnet_ids = module.inspect_vpc.firewall_subnet_ids
+  azs        = var.azs
+
+  home_net_cidrs  = concat(var.spoke_cidrs, ["10.220.192.0/19"])
+  allowed_domains = var.nfw_allowed_domains
+
+  enable_alert_logging = true
+  enable_flow_logging  = true
+  log_retention_days   = var.nfw_log_retention_days
+
+  stateful_rule_order           = var.nfw_stateful_rule_order
+  stateful_rule_group_capacity  = var.nfw_stateful_rule_group_capacity
+  stateless_rule_group_capacity = var.nfw_stateless_rule_group_capacity
+
+  tags = local.common_tags
+}
+
+###############################################################
+# ALB — Internal, in Ingress VPC ALB subnets
+###############################################################
+module "alb" {
+  source = "./modules/alb"
+
+  name        = var.name
+  environment = var.environment
+
+  vpc_id            = module.ingress_vpc.vpc_id
+  subnet_ids        = module.ingress_vpc.alb_subnet_ids
+  security_group_id = module.ingress_vpc.alb_security_group_id
+
+  certificate_arn        = var.alb_certificate_arn
+  enable_https           = var.alb_certificate_arn != ""
+  http_redirect_to_https = true
+  ssl_policy             = var.alb_ssl_policy
+
+  enable_deletion_protection = false
+  idle_timeout               = var.alb_idle_timeout
+  access_logs_bucket         = var.lb_access_logs_bucket
+  access_logs_prefix         = "alb"
+
+  listener_rules = var.alb_listener_rules
+
+  tags = local.common_tags
+}
+
+###############################################################
+# NLB — Internet-facing, in Ingress VPC NLB subnets
+# Depends on ALB so it can register the ALB ARN as target
+###############################################################
+module "nlb" {
+  source = "./modules/nlb"
+
+  name        = var.name
+  environment = var.environment
+
+  vpc_id            = module.ingress_vpc.vpc_id
+  subnet_ids        = module.ingress_vpc.nlb_subnet_ids
+  security_group_id = module.ingress_vpc.nlb_security_group_id
+
+  alb_arn         = module.alb.alb_arn
+  alb_target_port = 443
+
+  certificate_arn                  = var.nlb_certificate_arn
+  enable_cross_zone_load_balancing = true
+  enable_deletion_protection       = false
+  access_logs_bucket               = var.lb_access_logs_bucket
+  access_logs_prefix               = "nlb"
+
+  health_check_protocol            = "TCP"
+  health_check_interval            = 30
+  health_check_healthy_threshold   = 3
+  health_check_unhealthy_threshold = 3
+
+  tags = local.common_tags
+}

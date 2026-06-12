@@ -52,3 +52,102 @@ variable "spoke_cidrs" {
   type        = list(string)
   default     = ["10.220.136.0/21"]
 }
+
+###############################################################
+# NLB
+###############################################################
+variable "nlb_certificate_arn" {
+  description = "ACM certificate ARN for TLS on the NLB. Leave empty for TCP passthrough (ALB handles TLS)."
+  type        = string
+  default     = ""
+}
+
+variable "lb_access_logs_bucket" {
+  description = "S3 bucket name for NLB and ALB access logs. Leave empty to disable."
+  type        = string
+  default     = ""
+}
+
+###############################################################
+# ALB
+###############################################################
+variable "alb_certificate_arn" {
+  description = "ACM certificate ARN for HTTPS on the ALB. Required for HTTPS listener."
+  type        = string
+  default     = ""
+}
+
+variable "alb_ssl_policy" {
+  description = "ALB SSL/TLS security policy"
+  type        = string
+  default     = "ELBSecurityPolicy-TLS13-1-2-2021-06"
+}
+
+variable "alb_idle_timeout" {
+  description = "ALB idle connection timeout in seconds"
+  type        = number
+  default     = 60
+}
+
+variable "alb_listener_rules" {
+  description = "ALB listener rules for host/path-based routing to spoke workloads. See alb module variables for schema."
+  type = list(object({
+    priority     = number
+    host_header  = optional(list(string), [])
+    path_pattern = optional(list(string), [])
+    target_group = object({
+      name                  = string
+      port                  = number
+      protocol              = string
+      target_type           = string
+      health_check_path     = string
+      health_check_protocol = string
+      health_check_matcher  = string
+      health_check_interval = number
+      health_check_timeout  = number
+      healthy_threshold     = number
+      unhealthy_threshold   = number
+      stickiness_enabled    = optional(bool, false)
+      deregistration_delay  = optional(number, 300)
+    })
+  }))
+  default = []
+}
+
+###############################################################
+# Network Firewall
+###############################################################
+variable "nfw_allowed_domains" {
+  description = "FQDNs allowlisted for egress through Network Firewall"
+  type        = list(string)
+  default = [
+    ".amazonaws.com",
+    ".cloudfront.net",
+    ".s3.amazonaws.com",
+    ".execute-api.ap-southeast-2.amazonaws.com",
+  ]
+}
+
+variable "nfw_log_retention_days" {
+  description = "CloudWatch log retention in days for Network Firewall logs"
+  type        = number
+  default     = 90
+}
+
+variable "nfw_stateful_rule_order" {
+  description = "Stateful rule evaluation order: STRICT_ORDER or DEFAULT_ACTION_ORDER"
+  type        = string
+  default     = "STRICT_ORDER"
+}
+
+variable "nfw_stateful_rule_group_capacity" {
+  description = "Capacity units for the stateful Suricata rule group"
+  type        = number
+  default     = 1000
+}
+
+variable "nfw_stateless_rule_group_capacity" {
+  description = "Capacity units for the stateless rule group"
+  type        = number
+  default     = 100
+}

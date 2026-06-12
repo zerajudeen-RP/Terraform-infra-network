@@ -88,3 +88,77 @@ output "endpoints_subnet_ids" {
   description = "Interface endpoint subnet IDs"
   value       = module.endpoints_vpc.endpoint_subnet_ids
 }
+
+###############################################################
+# Network Firewall
+###############################################################
+output "network_firewall_arn" {
+  description = "ARN of the AWS Network Firewall"
+  value       = module.network_firewall.firewall_arn
+}
+
+output "network_firewall_policy_arn" {
+  description = "ARN of the Network Firewall policy"
+  value       = module.network_firewall.firewall_policy_arn
+}
+
+output "nfw_endpoint_ids" {
+  description = "Ordered list of Network Firewall endpoint IDs (aligned with azs)"
+  value       = module.network_firewall.endpoint_ids
+}
+
+output "nfw_endpoint_by_az" {
+  description = "Map of AZ → Network Firewall endpoint ID"
+  value       = module.network_firewall.endpoint_by_az
+}
+
+output "nfw_alert_log_group" {
+  description = "CloudWatch log group for Network Firewall alerts"
+  value       = module.network_firewall.alert_log_group_name
+}
+
+output "nfw_flow_log_group" {
+  description = "CloudWatch log group for Network Firewall flow logs"
+  value       = module.network_firewall.flow_log_group_name
+}
+
+###############################################################
+# ALB
+###############################################################
+output "alb_arn" {
+  description = "Internal ALB ARN"
+  value       = module.alb.alb_arn
+}
+
+output "alb_dns_name" {
+  description = "Internal ALB DNS name"
+  value       = module.alb.alb_dns_name
+}
+
+output "alb_https_listener_arn" {
+  description = "ALB HTTPS listener ARN"
+  value       = module.alb.https_listener_arn
+}
+
+output "alb_rule_target_group_arns" {
+  description = "Map of rule name → target group ARN for workload routing"
+  value       = module.alb.rule_target_group_arns
+}
+
+###############################################################
+# NLB
+###############################################################
+output "nlb_arn" {
+  description = "Internet-facing NLB ARN"
+  value       = module.nlb.nlb_arn
+}
+
+output "nlb_dns_name" {
+  description = "NLB DNS name — use in Route53 alias records"
+  value       = module.nlb.nlb_dns_name
+}
+
+output "nlb_zone_id" {
+  description = "NLB hosted zone ID — for Route53 alias target"
+  value       = module.nlb.nlb_zone_id
+}
