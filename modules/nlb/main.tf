@@ -83,11 +83,15 @@ resource "aws_lb_target_group_attachment" "alb" {
 ###############################################################
 # Listener — HTTPS (443)
 #
-# If certificate_arn is set → TLS listener (NLB terminates TLS,
-#   forwards as TCP to ALB).
-# If empty → plain TCP listener (ALB handles TLS end-to-end).
+# If certificate_arn is set: TLS listener, NLB terminates TLS,
+#   forwards as TCP to ALB on alb_target_port (443).
+# If empty: TCP passthrough on port 443, forwards to ALB.
+#   Only created when alb_target_port = 443 (ALB has HTTPS).
+#   When alb_target_port = 80, skip this listener to avoid the
+#   "no matching listener" error on the ALB target.
 ###############################################################
 resource "aws_lb_listener" "https" {
+  count             = var.alb_target_port == 443 ? 1 : 0
   load_balancer_arn = aws_lb.this.arn
   port              = var.https_port
   protocol          = var.certificate_arn != "" ? "TLS" : "TCP"
@@ -107,9 +111,11 @@ resource "aws_lb_listener" "https" {
 ###############################################################
 # Listener — HTTP (80)
 #
-# NLBs cannot do HTTP→HTTPS redirects natively.
-# Forward TCP/80 to the ALB and let the ALB perform the
-# redirect (ALB has a redirect action on its port-80 listener).
+# Always created. Forwards TCP/80 to the ALB.
+# When alb_target_port = 80 (no HTTPS cert), this is the only
+# active listener and handles all traffic.
+# When alb_target_port = 443, this forwards HTTP to the ALB
+# which redirects it to HTTPS.
 ###############################################################
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.this.arn

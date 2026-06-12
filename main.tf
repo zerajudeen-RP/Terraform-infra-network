@@ -202,7 +202,10 @@ module "alb" {
 
 ###############################################################
 # NLB — Internet-facing, in Ingress VPC NLB subnets
-# Depends on ALB so it can register the ALB ARN as target
+# Depends on ALB so it can register the ALB ARN as target.
+# alb_target_port must match a port the ALB actually listens on.
+# When no cert is provided, ALB only has HTTP/80, so use 80.
+# When a cert is provided, ALB has HTTPS/443, so use 443.
 ###############################################################
 module "nlb" {
   source = "./modules/nlb"
@@ -215,7 +218,7 @@ module "nlb" {
   security_group_id = module.ingress_vpc.nlb_security_group_id
 
   alb_arn         = module.alb.alb_arn
-  alb_target_port = 443
+  alb_target_port = var.alb_certificate_arn != "" ? 443 : 80
 
   certificate_arn                  = var.nlb_certificate_arn
   enable_cross_zone_load_balancing = true

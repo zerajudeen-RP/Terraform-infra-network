@@ -28,8 +28,8 @@ output "alb_target_group_arn" {
 }
 
 output "https_listener_arn" {
-  description = "ARN of the HTTPS/TLS listener"
-  value       = aws_lb_listener.https.arn
+  description = "ARN of the HTTPS/TLS listener (null when alb_target_port = 80)"
+  value       = length(aws_lb_listener.https) > 0 ? aws_lb_listener.https[0].arn : null
 }
 
 output "http_listener_arn" {

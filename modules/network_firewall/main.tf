@@ -146,39 +146,36 @@ resource "aws_networkfirewall_rule_group" "stateful_suricata" {
 
     rules_source {
       rules_string = <<-SURICATA
-        # Pass established/related flows — must be first in STRICT_ORDER
-        pass tcp any any -> any any (msg:"Pass established TCP"; flow:established; sid:1000001; rev:1;)
-        pass udp any any -> any any (msg:"Pass established UDP"; flow:established; sid:1000002; rev:1;)
+# Pass established/related flows - must be first in STRICT_ORDER
+pass tcp any any -> any any (msg:"Pass established TCP"; flow:established; sid:1000001; rev:1;)
+pass udp any any -> any any (msg:"Pass established UDP"; flow:established; sid:1000002; rev:1;)
 
-        # Allow DNS outbound (UDP/53 and TCP/53)
-        pass dns $HOME_NET any -> any 53 (msg:"Allow DNS egress"; sid:1000010; rev:1;)
+# Allow DNS outbound (UDP/53 and TCP/53)
+pass dns $HOME_NET any -> any 53 (msg:"Allow DNS egress"; sid:1000010; rev:1;)
 
-        # Allow NTP outbound
-        pass udp $HOME_NET any -> any 123 (msg:"Allow NTP egress"; sid:1000011; rev:1;)
+# Allow NTP outbound
+pass udp $HOME_NET any -> any 123 (msg:"Allow NTP egress"; sid:1000011; rev:1;)
 
-        # Allow HTTPS outbound
-        pass tls $HOME_NET any -> $EXTERNAL_NET 443 (msg:"Allow HTTPS egress"; sid:1000020; rev:1;)
+# Allow HTTPS outbound
+pass tls $HOME_NET any -> $EXTERNAL_NET 443 (msg:"Allow HTTPS egress"; sid:1000020; rev:1;)
 
-        # Allow HTTP outbound (for redirects / package downloads)
-        pass http $HOME_NET any -> $EXTERNAL_NET 80 (msg:"Allow HTTP egress"; sid:1000021; rev:1;)
+# Allow HTTP outbound for redirects and package downloads
+pass http $HOME_NET any -> $EXTERNAL_NET 80 (msg:"Allow HTTP egress"; sid:1000021; rev:1;)
 
-        # Alert on non-standard HTTPS ports (potential data exfil)
-        alert tls $HOME_NET any -> $EXTERNAL_NET !443 (msg:"ALERT: TLS on non-standard port"; sid:2000001; rev:1;)
+# Alert on non-standard HTTPS ports (potential data exfil)
+alert tls $HOME_NET any -> $EXTERNAL_NET !443 (msg:"ALERT TLS on non-standard port"; sid:2000001; rev:1;)
 
-        # Drop inbound SSH from internet to internal hosts
-        drop tcp $EXTERNAL_NET any -> $HOME_NET 22 (msg:"DROP: inbound SSH from internet"; sid:3000001; rev:1;)
+# Drop inbound SSH from internet to internal hosts
+drop tcp $EXTERNAL_NET any -> $HOME_NET 22 (msg:"DROP inbound SSH from internet"; sid:3000001; rev:1;)
 
-        # Drop inbound RDP from internet
-        drop tcp $EXTERNAL_NET any -> $HOME_NET 3389 (msg:"DROP: inbound RDP from internet"; sid:3000002; rev:1;)
+# Drop inbound RDP from internet
+drop tcp $EXTERNAL_NET any -> $HOME_NET 3389 (msg:"DROP inbound RDP from internet"; sid:3000002; rev:1;)
 
-        # Drop invalid TCP packets (resets, no flags, etc.)
-        drop tcp any any -> any any (msg:"DROP: invalid TCP flags"; flags:!A+; flow:stateless; sid:3000010; rev:1;)
+# Alert on potential port scan
+alert tcp $EXTERNAL_NET any -> $HOME_NET any (msg:"ALERT potential port scan"; flags:S; threshold:type threshold,track by_src,count 10,seconds 5; sid:2000010; rev:1;)
 
-        # Alert on potential port scan (many connections in short time)
-        alert tcp $EXTERNAL_NET any -> $HOME_NET any (msg:"ALERT: potential port scan"; flags:S; threshold:type threshold,track by_src,count 10,seconds 5; sid:2000010; rev:1;)
-
-        # Drop all other traffic not explicitly passed
-        drop ip any any -> any any (msg:"DROP: default deny"; sid:9999999; rev:1;)
+# Drop all other traffic not explicitly passed
+drop ip any any -> any any (msg:"DROP default deny"; sid:9999999; rev:1;)
       SURICATA
     }
   }
