@@ -224,10 +224,13 @@ resource "aws_networkfirewall_firewall_policy" "this" {
 
     stateful_rule_group_reference {
       resource_arn = aws_networkfirewall_rule_group.stateful_domain_list.arn
+      priority = 10
+
     }
 
     stateful_rule_group_reference {
       resource_arn = aws_networkfirewall_rule_group.stateful_suricata.arn
+      priority = 20
     }
   }
 
