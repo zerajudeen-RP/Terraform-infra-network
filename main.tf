@@ -226,7 +226,7 @@ module "nlb" {
   access_logs_bucket               = var.lb_access_logs_bucket
   access_logs_prefix               = "nlb"
 
-  health_check_protocol            = "TCP"
+  health_check_protocol            = "HTTP"
   health_check_interval            = 30
   health_check_healthy_threshold   = 3
   health_check_unhealthy_threshold = 3

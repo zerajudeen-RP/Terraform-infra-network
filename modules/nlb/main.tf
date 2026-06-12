@@ -51,7 +51,7 @@ resource "aws_lb" "this" {
 # Protocol must be TCP or TLS when target_type = "alb".
 ###############################################################
 resource "aws_lb_target_group" "alb" {
-  name        = "${var.name}-${var.environment}-nlb-tg-v2"
+  name        = "${var.name}-${var.environment}-nlb-tg"
   port        = var.alb_target_port
   protocol    = "TCP"
   target_type = "alb"

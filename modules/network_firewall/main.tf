@@ -181,7 +181,7 @@ resource "aws_networkfirewall_rule_group" "stateful_domain_list" {
 
   rule_group {
     stateful_rule_options {
-      rule_order = "DEFAULT_ACTION_ORDER"
+      rule_order = var.stateful_rule_order
     }
 
     rules_source {
@@ -222,14 +222,11 @@ resource "aws_networkfirewall_firewall_policy" "this" {
 
     stateful_default_actions = var.stateful_rule_order == "STRICT_ORDER" ? var.stateful_default_actions : null
 
-    # Domain-list evaluated before Suricata (lower priority number = higher precedence)
     stateful_rule_group_reference {
-      priority     = 10
       resource_arn = aws_networkfirewall_rule_group.stateful_domain_list.arn
     }
 
     stateful_rule_group_reference {
-      priority     = 20
       resource_arn = aws_networkfirewall_rule_group.stateful_suricata.arn
     }
   }
