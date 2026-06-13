@@ -45,6 +45,7 @@ resource "aws_ram_principal_association" "workload_accounts" {
   for_each = toset(var.workload_account_ids)
 
   # Principal can be an AWS account ID, OU ARN, or org ARN
-  principal          = "arn:aws:iam::${each.value}:root"
+  #principal          = "arn:aws:iam::${each.value}:root"
+  principal     = each.value
   resource_share_arn = aws_ram_resource_share.tgw.arn
 }
