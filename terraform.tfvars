@@ -75,6 +75,13 @@ alb_idle_timeout    = 60
 alb_listener_rules = []
 
 ###############################################################
+# RAM — TGW sharing
+# Add the 12-digit AWS account ID of each workload account.
+###############################################################
+workload_account_ids          = ["034866042265"]  # replace with real account ID
+ram_allow_external_principals = true
+
+###############################################################
 # Network Firewall
 ###############################################################
 nfw_allowed_domains = [

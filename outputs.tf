@@ -162,3 +162,16 @@ output "nlb_zone_id" {
   description = "NLB hosted zone ID — for Route53 alias target"
   value       = module.nlb.nlb_zone_id
 }
+
+###############################################################
+# RAM
+###############################################################
+output "ram_resource_share_arn" {
+  description = "ARN of the RAM share — workload accounts use this to accept the TGW share"
+  value       = module.ram.resource_share_arn
+}
+
+output "tgw_arn" {
+  description = "Transit Gateway ARN"
+  value       = module.tgw.tgw_arn
+}

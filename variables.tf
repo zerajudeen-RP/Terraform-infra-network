@@ -115,6 +115,21 @@ variable "alb_listener_rules" {
 }
 
 ###############################################################
+# RAM — TGW sharing
+###############################################################
+variable "workload_account_ids" {
+  description = "List of workload AWS account IDs to share the TGW with via RAM"
+  type        = list(string)
+  default     = []
+}
+
+variable "ram_allow_external_principals" {
+  description = "Set true if workload accounts are outside your AWS Organization"
+  type        = bool
+  default     = true
+}
+
+###############################################################
 # Network Firewall
 ###############################################################
 variable "nfw_allowed_domains" {

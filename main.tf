@@ -139,6 +139,23 @@ module "tgw_routes" {
 }
 
 ###############################################################
+# RAM — Share TGW with workload accounts
+###############################################################
+module "ram" {
+  source = "./modules/ram"
+
+  name        = var.name
+  environment = var.environment
+
+  tgw_arn              = module.tgw.tgw_arn
+  workload_account_ids = var.workload_account_ids
+
+  allow_external_principals = var.ram_allow_external_principals
+
+  tags = local.common_tags
+}
+
+###############################################################
 # Network Firewall — deployed in Inspect VPC firewall subnets
 #
 # Endpoints are created per AZ. The inspect_vpc module's firewall
