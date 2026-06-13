@@ -28,7 +28,7 @@ azs = [
 # Used for TGW blackhole routes and endpoint security group rules.
 ###############################################################
 spoke_cidrs = [
-  "10.220.136.0/21"  # Stage workload VPC — placeholder until workload is deployed
+  "10.220.128.0/21"  # Stage workload VPC — placeholder until workload is deployed
 ]
 
 ###############################################################
