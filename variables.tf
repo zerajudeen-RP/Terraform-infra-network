@@ -130,6 +130,17 @@ variable "ram_allow_external_principals" {
 }
 
 ###############################################################
+# TGW spoke attachments — cross-account RT wiring
+# Populated after workload account applies and tgw_attachment_id
+# is known. Get it from: terraform output -state=workload tgw_attachment_id
+###############################################################
+variable "spoke_attachment_ids" {
+  description = "Map of workload name to TGW attachment ID for cross-account RT association/propagation. e.g. { stage-workload = 'tgw-attach-0abc123' }"
+  type        = map(string)
+  default     = {}
+}
+
+###############################################################
 # Network Firewall
 ###############################################################
 variable "nfw_allowed_domains" {

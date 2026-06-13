@@ -139,6 +139,26 @@ module "tgw_routes" {
 }
 
 ###############################################################
+# TGW Spoke Attachments — cross-account RT association/propagation
+#
+# Workload accounts create TGW attachments but cannot touch the
+# hub's route tables. This module runs in the hub account and
+# associates + propagates each workload attachment to the spoke RT.
+#
+# Step 1: apply workload repo → get tgw_attachment_id from output
+# Step 2: add that ID to spoke_attachment_ids in hub terraform.tfvars
+# Step 3: re-apply hub repo
+###############################################################
+module "tgw_spoke_attachments" {
+  source = "./modules/tgw_spoke_attachments"
+
+  tgw_spoke_rt_id    = module.tgw.spoke_route_table_id
+  spoke_attachment_ids = var.spoke_attachment_ids
+
+  tags = local.common_tags
+}
+
+###############################################################
 # RAM — Share TGW with workload accounts
 ###############################################################
 module "ram" {
