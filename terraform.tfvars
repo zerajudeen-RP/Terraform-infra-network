@@ -31,6 +31,10 @@ spoke_cidrs = [
   "10.220.128.0/21"  # Stage workload VPC — placeholder until workload is deployed
 ]
 
+spoke_attachment_ids = {
+  "stage-workload" = "tgw-attach-0af4d927a43fe17c3"
+}
+
 ###############################################################
 # NLB
 # nlb_certificate_arn — leave empty for TCP passthrough (ALB terminates TLS)
