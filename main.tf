@@ -152,7 +152,8 @@ module "tgw_routes" {
 module "tgw_spoke_attachments" {
   source = "./modules/tgw_spoke_attachments"
 
-  tgw_spoke_rt_id    = module.tgw.spoke_route_table_id
+  tgw_spoke_rt_id      = module.tgw.spoke_route_table_id
+  tgw_core_rt_id       = module.tgw.core_route_table_id
   spoke_attachment_ids = var.spoke_attachment_ids
 
   tags = local.common_tags
