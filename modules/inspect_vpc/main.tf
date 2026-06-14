@@ -282,12 +282,12 @@ resource "aws_route_table_association" "tgw" {
 # Note: when AWS Network Firewall is used, the root module overrides
 # these routes by adding explicit NFW endpoint routes via
 # aws_route resources in main.tf after the NFW module runs.
-resource "aws_route" "tgw_to_gwlb" {
-  count                  = length(var.azs)
-  route_table_id         = aws_route_table.tgw[count.index].id
-  destination_cidr_block = "0.0.0.0/0"
-  vpc_endpoint_id        = aws_vpc_endpoint.gwlb[count.index].id
-}
+#resource "aws_route" "tgw_to_gwlb" {
+# count                  = length(var.azs)
+# route_table_id         = aws_route_table.tgw[count.index].id
+# destination_cidr_block = "0.0.0.0/0"
+# vpc_endpoint_id        = aws_vpc_endpoint.gwlb[count.index].id
+#}
 
 ###############################################################
 # Route Tables — Firewall Subnets
