@@ -31,6 +31,11 @@ output "tgw_subnet_ids" {
   value = aws_subnet.tgw[*].id
 }
 
+output "tgw_route_table_ids" {
+  description = "TGW attachment subnet route table IDs — used by root to add NFW endpoint routes"
+  value       = aws_route_table.tgw[*].id
+}
+
 output "firewall_subnet_ids" {
   value = aws_subnet.firewall[*].id
 }

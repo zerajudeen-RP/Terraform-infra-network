@@ -40,3 +40,9 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+variable "nfw_endpoint_ids" {
+  description = "Ordered list of Network Firewall endpoint IDs (one per AZ, aligned with var.azs). When provided, TGW subnet RTs point to NFW instead of GWLBe."
+  type        = list(string)
+  default     = []
+}
