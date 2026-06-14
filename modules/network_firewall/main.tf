@@ -132,12 +132,6 @@ resource "aws_networkfirewall_rule_group" "stateful_suricata" {
           definition = var.home_net_cidrs
         }
       }
-      ip_sets {
-        key = "EXTERNAL_NET"
-        ip_set {
-          definition = ["!$HOME_NET"]
-        }
-      }
     }
 
     stateful_rule_options {
@@ -150,12 +144,11 @@ pass tcp any any -> any any (msg:"Pass established TCP"; flow:established; sid:1
 pass udp any any -> any any (msg:"Pass established UDP"; flow:established; sid:1000002; rev:1;)
 pass dns $HOME_NET any -> any 53 (msg:"Allow DNS egress"; sid:1000010; rev:1;)
 pass udp $HOME_NET any -> any 123 (msg:"Allow NTP egress"; sid:1000011; rev:1;)
-pass tls $HOME_NET any -> $EXTERNAL_NET 443 (msg:"Allow HTTPS egress"; sid:1000020; rev:1;)
-pass http $HOME_NET any -> $EXTERNAL_NET 80 (msg:"Allow HTTP egress"; sid:1000021; rev:1;)
-alert tls $HOME_NET any -> $EXTERNAL_NET !443 (msg:"ALERT TLS non-standard port"; sid:2000001; rev:1;)
-drop tcp $EXTERNAL_NET any -> $HOME_NET 22 (msg:"DROP inbound SSH"; sid:3000001; rev:1;)
-drop tcp $EXTERNAL_NET any -> $HOME_NET 3389 (msg:"DROP inbound RDP"; sid:3000002; rev:1;)
-alert tcp $EXTERNAL_NET any -> $HOME_NET any (msg:"ALERT port scan"; flags:S; threshold:type threshold,track by_src,count 10,seconds 5; sid:2000010; rev:1;)
+pass tls $HOME_NET any -> any 443 (msg:"Allow HTTPS egress"; sid:1000020; rev:1;)
+pass http $HOME_NET any -> any 80 (msg:"Allow HTTP egress"; sid:1000021; rev:1;)
+alert tls $HOME_NET any -> any !443 (msg:"ALERT TLS non-standard port"; sid:2000001; rev:1;)
+drop tcp any any -> $HOME_NET 22 (msg:"DROP inbound SSH"; sid:3000001; rev:1;)
+drop tcp any any -> $HOME_NET 3389 (msg:"DROP inbound RDP"; sid:3000002; rev:1;)
 drop ip any any -> any any (msg:"DROP default deny"; sid:9999999; rev:1;)
 SURICATA
     }
