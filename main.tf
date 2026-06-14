@@ -178,12 +178,11 @@ module "ram" {
 ###############################################################
 # Network Firewall — deployed in Inspect VPC firewall subnets
 #
-# Endpoints are created per AZ. The inspect_vpc module's firewall
-# subnet route tables already point 0.0.0.0/0 → NAT GW, but for
-# the TGW attach subnet RTs we wire traffic through the firewall
-# endpoints instead of (or alongside) the GWLB endpoints.
-# Both can coexist: GWLB handles N-S inbound via ingress VPC,
-# Network Firewall handles E-W + egress in the inspect VPC.
+# Endpoints are created per AZ. The inspect_vpc module's TGW
+# subnet RTs initially point to GWLBe. After the NFW is created
+# we replace those routes with NFW endpoint routes so all egress
+# traffic flows: TGW subnet → NFW endpoint → firewall subnet
+# → NAT GW → IGW → internet.
 ###############################################################
 module "network_firewall" {
   source = "./modules/network_firewall"
@@ -207,6 +206,27 @@ module "network_firewall" {
   stateless_rule_group_capacity = var.nfw_stateless_rule_group_capacity
 
   tags = local.common_tags
+}
+
+###############################################################
+# Replace GWLBe routes in inspect VPC TGW subnet RTs with
+# Network Firewall endpoint routes (one per AZ).
+#
+# The inspect_vpc module creates 0.0.0.0/0 → GWLBe by default.
+# Those routes must be removed and replaced with NFW endpoints
+# so egress traffic actually hits the firewall.
+# We use replace_triggered_by to force recreation when endpoints change.
+###############################################################
+resource "aws_route" "inspect_tgw_to_nfw" {
+  count                  = length(var.azs)
+  route_table_id         = module.inspect_vpc.tgw_route_table_ids[count.index]
+  destination_cidr_block = "0.0.0.0/0"
+  vpc_endpoint_id        = module.network_firewall.endpoint_ids[count.index]
+
+  # This conflicts with the GWLBe route in inspect_vpc module.
+  # Run: terraform apply -replace=module.inspect_vpc.aws_route.tgw_to_gwlb
+  # on first apply to remove the old route before this one is added.
+  depends_on = [module.network_firewall, module.inspect_vpc]
 }
 
 ###############################################################

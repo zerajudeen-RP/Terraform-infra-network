@@ -278,7 +278,10 @@ resource "aws_route_table_association" "tgw" {
   route_table_id = aws_route_table.tgw[count.index].id
 }
 
-# 0.0.0.0/0 → GWLBe (all traffic hits firewall first)
+# 0.0.0.0/0 → GWLBe
+# Note: when AWS Network Firewall is used, the root module overrides
+# these routes by adding explicit NFW endpoint routes via
+# aws_route resources in main.tf after the NFW module runs.
 resource "aws_route" "tgw_to_gwlb" {
   count                  = length(var.azs)
   route_table_id         = aws_route_table.tgw[count.index].id
