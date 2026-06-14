@@ -112,11 +112,9 @@ resource "aws_networkfirewall_rule_group" "stateless" {
 # Uses STRICT_ORDER so rules are evaluated top-down and the
 # first matching rule wins. Rules written in Suricata format.
 #
-# Key rules:
-#   - Block known bad TLS SNI patterns
-#   - Alert on unusual port usage (non-443 HTTPS attempts)
-#   - Drop invalid TCP state packets
-#   - Allow established/related flows (pass on established)
+# Policy: allow all outbound traffic from HOME_NET to internet.
+# Alert on inbound SSH/RDP attempts.
+# Pass rule at the end ensures nothing is dropped by default.
 ###############################################################
 resource "aws_networkfirewall_rule_group" "stateful_suricata" {
   name     = "${var.name}-${var.environment}-nfw-stateful-suricata-rg"
@@ -140,16 +138,11 @@ resource "aws_networkfirewall_rule_group" "stateful_suricata" {
 
     rules_source {
       rules_string = <<-SURICATA
-pass tcp any any -> any any (msg:"Pass established TCP"; flow:established; sid:1000001; rev:1;)
-pass udp any any -> any any (msg:"Pass established UDP"; flow:established; sid:1000002; rev:1;)
-pass dns $HOME_NET any -> any 53 (msg:"Allow DNS egress"; sid:1000010; rev:1;)
-pass udp $HOME_NET any -> any 123 (msg:"Allow NTP egress"; sid:1000011; rev:1;)
-pass tls $HOME_NET any -> any 443 (msg:"Allow HTTPS egress"; sid:1000020; rev:1;)
-pass http $HOME_NET any -> any 80 (msg:"Allow HTTP egress"; sid:1000021; rev:1;)
-alert tls $HOME_NET any -> any !443 (msg:"ALERT TLS non-standard port"; sid:2000001; rev:1;)
-drop tcp any any -> $HOME_NET 22 (msg:"DROP inbound SSH"; sid:3000001; rev:1;)
-drop tcp any any -> $HOME_NET 3389 (msg:"DROP inbound RDP"; sid:3000002; rev:1;)
-drop ip any any -> any any (msg:"DROP default deny"; sid:9999999; rev:1;)
+pass ip $HOME_NET any -> any any (msg:"Pass all outbound from HOME_NET"; sid:1000001; rev:1;)
+pass ip any any -> $HOME_NET any (msg:"Pass all return traffic to HOME_NET"; sid:1000002; rev:1;)
+alert tcp any any -> $HOME_NET 22 (msg:"ALERT inbound SSH"; sid:2000001; rev:1;)
+alert tcp any any -> $HOME_NET 3389 (msg:"ALERT inbound RDP"; sid:2000002; rev:1;)
+pass ip any any -> any any (msg:"Pass all other traffic"; sid:9999999; rev:1;)
 SURICATA
     }
   }
@@ -160,12 +153,11 @@ SURICATA
 }
 
 ###############################################################
-# Stateful Rule Group — Domain-list (FQDN allowlist for egress)
+# Stateful Rule Group — pass-all (open internet egress)
 #
-# Filters HTTPS/TLS traffic by SNI and HTTP traffic by hostname.
-# Only domains in var.allowed_domains are permitted to egress.
-# Useful for locking down workload internet access to known CDNs
-# and AWS service endpoints.
+# Domain-list filtering is disabled. All egress is permitted.
+# Replace this with a domain-list rule group if you want to
+# restrict outbound access to specific FQDNs in future.
 ###############################################################
 resource "aws_networkfirewall_rule_group" "stateful_domain_list" {
   name     = "${var.name}-${var.environment}-nfw-stateful-domain-rg"
@@ -178,11 +170,9 @@ resource "aws_networkfirewall_rule_group" "stateful_domain_list" {
     }
 
     rules_source {
-      rules_source_list {
-        generated_rules_type = "ALLOWLIST"
-        target_types         = ["TLS_SNI", "HTTP_HOST"]
-        targets              = var.allowed_domains
-      }
+      rules_string = <<-SURICATA
+pass ip any any -> any any (msg:"Allow all traffic"; sid:100; rev:1;)
+SURICATA
     }
   }
 
@@ -213,17 +203,14 @@ resource "aws_networkfirewall_firewall_policy" "this" {
       rule_order = var.stateful_rule_order
     }
 
-    stateful_default_actions = var.stateful_rule_order == "STRICT_ORDER" ? var.stateful_default_actions : null
-
     stateful_rule_group_reference {
       resource_arn = aws_networkfirewall_rule_group.stateful_domain_list.arn
-      priority = 10
-
+      priority     = 10
     }
 
     stateful_rule_group_reference {
       resource_arn = aws_networkfirewall_rule_group.stateful_suricata.arn
-      priority = 20
+      priority     = 20
     }
   }
 

@@ -222,37 +222,19 @@ resource "aws_vpc_endpoint" "gwlb" {
 }
 
 ###############################################################
-# S3 + DynamoDB Gateway Endpoints
+# S3 + DynamoDB Gateway Endpoints — REMOVED
+#
+# Gateway endpoints in the inspect VPC's firewall and NAT subnet
+# route tables intercept S3/DynamoDB traffic from transiting
+# workload VPCs and redirect it through the endpoint instead of
+# the NAT gateway. This breaks the egress path for spoke VPCs
+# because the return traffic cannot route back to the originating
+# workload EC2 via TGW.
+#
+# Spoke VPCs reach S3/DynamoDB via the dedicated endpoints VPC
+# interface endpoints over TGW (tgw_spoke_rt → endpoints VPC).
+# The inspect VPC itself does not need S3/DynamoDB access.
 ###############################################################
-resource "aws_vpc_endpoint" "s3" {
-  vpc_id            = aws_vpc.this.id
-  service_name      = "com.amazonaws.${data.aws_region.current.name}.s3"
-  vpc_endpoint_type = "Gateway"
-  route_table_ids = concat(
-    aws_route_table.tgw[*].id,
-    aws_route_table.firewall[*].id,
-    aws_route_table.nat[*].id
-  )
-
-  tags = merge(var.tags, {
-    Name = "${var.name}-${var.environment}-inspect-s3-endpoint"
-  })
-}
-
-resource "aws_vpc_endpoint" "dynamodb" {
-  vpc_id            = aws_vpc.this.id
-  service_name      = "com.amazonaws.${data.aws_region.current.name}.dynamodb"
-  vpc_endpoint_type = "Gateway"
-  route_table_ids = concat(
-    aws_route_table.tgw[*].id,
-    aws_route_table.firewall[*].id,
-    aws_route_table.nat[*].id
-  )
-
-  tags = merge(var.tags, {
-    Name = "${var.name}-${var.environment}-inspect-dynamodb-endpoint"
-  })
-}
 
 ###############################################################
 # Route Tables — TGW Attachment Subnets

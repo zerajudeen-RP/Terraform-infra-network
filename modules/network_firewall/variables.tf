@@ -62,8 +62,8 @@ variable "stateful_rule_group_capacity" {
 
 variable "stateful_default_actions" {
   type        = list(string)
-  description = "Default actions for stateful engine (STRICT_ORDER mode)"
-  default     = ["aws:drop_strict", "aws:alert_strict"]
+  description = "Default actions for stateful engine (STRICT_ORDER mode) — not used when rule groups contain explicit pass-all rules"
+  default     = ["aws:drop_strict"]
 }
 
 variable "stateful_rule_order" {
