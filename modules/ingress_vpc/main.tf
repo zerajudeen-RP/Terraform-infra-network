@@ -1,18 +1,18 @@
 ###############################################################
 # Module: ingress_vpc
-# Centralized Ingress VPC — IGW + GWLBe + NLB + ALB + TGW
-# CIDR: 10.220.132.0/23
+# Centralized Ingress VPC — IGW + NLB + ALB + TGW
+# CIDR: allocated from IPAM
 #
 # Route table summary:
-#   IGW edge RT       : <nlb-subnet-cidr>/27 → GWLBe (per AZ)
-#                       (intercepts inbound before it reaches NLB)
-#   NLB subnet RT     : 0.0.0.0/0 → GWLBe
-#                       (return path — response also inspected)
-#   GWLBe subnet RT   : 0.0.0.0/0 → IGW
-#                       (GWLBe needs to forward back to IGW after inspection)
-#   ALB subnet RT     : <spoke-cidr> → TGW (forward to workload)
-#                       0.0.0.0/0 → IGW (health checks, mgmt)
-#   TGW attach RT     : local only (no routes — purely attachment subnet)
+#   NLB subnet RT  : 0.0.0.0/0 → IGW  (internet-facing, direct)
+#   ALB subnet RT  : <spoke-cidr> → TGW (forward to workload)
+#   TGW attach RT  : local only
+#
+# GWLBe inspection on ingress is removed — AWS Network Firewall
+# in the inspect VPC handles all inspection via the egress path.
+# Adding a GWLB bump-in-the-wire on inbound requires a running
+# firewall appliance registered in the GWLB target group; without
+# targets the GWLB drops all traffic and the NLB is unreachable.
 ###############################################################
 
 ###############################################################
@@ -62,7 +62,6 @@ resource "aws_internet_gateway" "this" {
 #   slot+4 (/28)  → TGW
 ###############################################################
 locals {
-  # Use the actual IPAM-assigned VPC CIDR, not var.vpc_cidr
   vpc_cidr = aws_vpc.this.cidr_block
 
   # /27 subnets for NLB (newbits=4 because /23+4=/27)
@@ -76,11 +75,6 @@ locals {
     cidrsubnet(local.vpc_cidr, 5, 4),  # AZ-a
     cidrsubnet(local.vpc_cidr, 5, 12), # AZ-b
     cidrsubnet(local.vpc_cidr, 5, 20), # AZ-c
-  ]
-  gwlbe_subnet_cidrs = [
-    cidrsubnet(local.vpc_cidr, 5, 5),  # AZ-a
-    cidrsubnet(local.vpc_cidr, 5, 13), # AZ-b
-    cidrsubnet(local.vpc_cidr, 5, 21), # AZ-c
   ]
   tgw_subnet_cidrs = [
     cidrsubnet(local.vpc_cidr, 5, 6),  # AZ-a
@@ -121,21 +115,6 @@ resource "aws_subnet" "alb" {
 }
 
 ###############################################################
-# Subnets — GWLBe (/28 per AZ)
-###############################################################
-resource "aws_subnet" "gwlbe" {
-  count             = length(var.azs)
-  vpc_id            = aws_vpc.this.id
-  cidr_block        = local.gwlbe_subnet_cidrs[count.index]
-  availability_zone = var.azs[count.index]
-
-  tags = merge(var.tags, {
-    Name = "${var.name}-${var.environment}-ingress-gwlbe-${substr(var.azs[count.index], -1, 1)}"
-    Tier = "gwlbe"
-  })
-}
-
-###############################################################
 # Subnets — TGW Attachment (/28 per AZ)
 ###############################################################
 resource "aws_subnet" "tgw" {
@@ -151,60 +130,8 @@ resource "aws_subnet" "tgw" {
 }
 
 ###############################################################
-# Gateway Load Balancer Endpoints (GWLBe) — one per AZ
-# Points to the GWLB endpoint service in the inspect VPC
-###############################################################
-resource "aws_vpc_endpoint" "gwlbe" {
-  count             = length(var.azs)
-  vpc_id            = aws_vpc.this.id
-  service_name      = var.gwlb_endpoint_service_name
-  vpc_endpoint_type = "GatewayLoadBalancer"
-  subnet_ids        = [aws_subnet.gwlbe[count.index].id]
-
-  tags = merge(var.tags, {
-    Name = "${var.name}-${var.environment}-ingress-gwlbe-${substr(var.azs[count.index], -1, 1)}"
-  })
-}
-
-###############################################################
-# Route Table — IGW Edge (Gateway Route Table)
-#
-# Attached to the IGW itself, not a subnet.
-# AWS evaluates this table first for packets arriving via IGW.
-# Each NLB subnet CIDR is redirected to the AZ-local GWLBe
-# so traffic is inspected BEFORE it reaches the NLB.
-###############################################################
-resource "aws_route_table" "igw" {
-  vpc_id = aws_vpc.this.id
-
-  tags = merge(var.tags, {
-    Name = "${var.name}-${var.environment}-ingress-rt-igw-edge"
-  })
-}
-
-# Edge association — attaches this RT to the IGW (not a subnet)
-resource "aws_route_table_association" "igw_gateway" {
-  gateway_id     = aws_internet_gateway.this.id
-  route_table_id = aws_route_table.igw.id
-}
-
-# Per AZ: inbound packets destined for NLB subnet → GWLBe
-# AWS matches the most specific CIDR, so each /27 NLB subnet
-# gets intercepted and sent to its AZ-local GWLBe endpoint
-resource "aws_route" "igw_to_gwlbe" {
-  count                  = length(var.azs)
-  route_table_id         = aws_route_table.igw.id
-  destination_cidr_block = local.nlb_subnet_cidrs[count.index]
-  vpc_endpoint_id        = aws_vpc_endpoint.gwlbe[count.index].id
-}
-
-###############################################################
 # Route Tables — NLB Subnets
-#
-# After GWLBe returns the packet to the NLB, the NLB processes
-# it and sends a response. The response must also go through
-# GWLBe (0.0.0.0/0 → GWLBe) so the firewall sees both
-# directions of the flow (required for stateful inspection).
+# Direct internet access — 0.0.0.0/0 → IGW
 ###############################################################
 resource "aws_route_table" "nlb" {
   count  = length(var.azs)
@@ -221,41 +148,9 @@ resource "aws_route_table_association" "nlb" {
   route_table_id = aws_route_table.nlb[count.index].id
 }
 
-# 0.0.0.0/0 → GWLBe (return/response traffic also inspected)
-resource "aws_route" "nlb_to_gwlbe" {
+resource "aws_route" "nlb_to_igw" {
   count                  = length(var.azs)
   route_table_id         = aws_route_table.nlb[count.index].id
-  destination_cidr_block = "0.0.0.0/0"
-  vpc_endpoint_id        = aws_vpc_endpoint.gwlbe[count.index].id
-}
-
-###############################################################
-# Route Tables — GWLBe Subnets
-#
-# After the firewall appliance approves traffic, GWLB returns
-# it to the GWLBe. The GWLBe subnet needs a route back to
-# the IGW so it can forward the packet to its original
-# destination (the NLB).
-###############################################################
-resource "aws_route_table" "gwlbe" {
-  count  = length(var.azs)
-  vpc_id = aws_vpc.this.id
-
-  tags = merge(var.tags, {
-    Name = "${var.name}-${var.environment}-ingress-rt-gwlbe-${substr(var.azs[count.index], -1, 1)}"
-  })
-}
-
-resource "aws_route_table_association" "gwlbe" {
-  count          = length(var.azs)
-  subnet_id      = aws_subnet.gwlbe[count.index].id
-  route_table_id = aws_route_table.gwlbe[count.index].id
-}
-
-# 0.0.0.0/0 → IGW (GWLBe returns inspected packet back toward IGW → NLB)
-resource "aws_route" "gwlbe_to_igw" {
-  count                  = length(var.azs)
-  route_table_id         = aws_route_table.gwlbe[count.index].id
   destination_cidr_block = "0.0.0.0/0"
   gateway_id             = aws_internet_gateway.this.id
 }

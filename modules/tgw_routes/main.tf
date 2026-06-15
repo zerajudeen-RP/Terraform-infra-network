@@ -15,6 +15,16 @@ resource "aws_ec2_transit_gateway_route" "spoke_default_to_inspect" {
   transit_gateway_route_table_id = var.spoke_route_table_id
 }
 
+# Ingress VPC CIDR → ingress attachment
+# Spoke VPCs must reach the ingress VPC directly (ALB health checks + response traffic).
+# Without this, return traffic from the workload EC2 to the ALB hits the default
+# 0.0.0.0/0 → inspect route and gets sent to the inspect VPC instead of ingress.
+resource "aws_ec2_transit_gateway_route" "spoke_to_ingress" {
+  destination_cidr_block         = var.ingress_vpc_cidr
+  transit_gateway_attachment_id  = var.ingress_attachment_id
+  transit_gateway_route_table_id = var.spoke_route_table_id
+}
+
 # Endpoints VPC CIDR → endpoints attachment (AWS service traffic)
 resource "aws_ec2_transit_gateway_route" "spoke_to_endpoints" {
   destination_cidr_block         = var.endpoints_vpc_cidr

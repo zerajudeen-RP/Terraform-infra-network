@@ -25,8 +25,9 @@ variable "tgw_core_rt_id" {
 }
 
 variable "gwlb_endpoint_service_name" {
-  description = "GWLB endpoint service name from the inspect VPC"
+  description = "GWLB endpoint service name from the inspect VPC — kept for interface compatibility, not used"
   type        = string
+  default     = ""
 }
 
 variable "spoke_cidrs" {

@@ -19,10 +19,6 @@ output "alb_subnet_ids" {
   value = aws_subnet.alb[*].id
 }
 
-output "gwlbe_subnet_ids" {
-  value = aws_subnet.gwlbe[*].id
-}
-
 output "tgw_subnet_ids" {
   value = aws_subnet.tgw[*].id
 }

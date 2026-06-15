@@ -91,13 +91,13 @@ variable "access_logs_prefix" {
 variable "default_target_group_port" {
   type        = number
   description = "Port for the default (catch-all) target group"
-  default     = 443
+  default     = 80
 }
 
 variable "default_target_group_protocol" {
   type        = string
   description = "Protocol for the default (catch-all) target group (HTTP or HTTPS)"
-  default     = "HTTPS"
+  default     = "HTTP"
 }
 
 variable "default_target_group_type" {
@@ -109,19 +109,19 @@ variable "default_target_group_type" {
 variable "default_health_check_path" {
   type        = string
   description = "Health check path for the default target group"
-  default     = "/health"
+  default     = "/"
 }
 
 variable "default_health_check_protocol" {
   type        = string
   description = "Health check protocol for the default target group"
-  default     = "HTTPS"
+  default     = "HTTP"
 }
 
 variable "default_health_check_matcher" {
   type        = string
-  description = "HTTP response codes expected for a healthy target (e.g. '200' or '200-299')"
-  default     = "200"
+  description = "HTTP response codes expected for a healthy target (e.g. '200' or '200-499')"
+  default     = "200-499"
 }
 
 variable "default_health_check_interval" {
@@ -153,13 +153,15 @@ variable "default_health_check_unhealthy_threshold" {
 ###############################################################
 variable "listener_rules" {
   description = <<-EOT
-    List of listener rules for the HTTPS listener. Each rule forwards
-    matching requests to a dedicated target group.
+    List of listener rules for the ALB. Each rule forwards matching
+    requests to a dedicated target group and optionally registers
+    EC2 private IPs directly as targets.
 
     Each rule object:
       priority    : (number)       Rule priority — must be unique, lower = higher priority
       host_header : (list(string)) Optional host header patterns, e.g. ["api.example.com"]
       path_pattern: (list(string)) Optional path patterns, e.g. ["/api/*"]
+      target_ips  : (list(string)) Optional EC2 private IPs to register as targets
       target_group: object {
         name                     : (string) Unique short name (used for TG resource name)
         port                     : (number) Target port
@@ -180,6 +182,7 @@ variable "listener_rules" {
     priority     = number
     host_header  = optional(list(string), [])
     path_pattern = optional(list(string), [])
+    target_ips   = optional(list(string), [])
     target_group = object({
       name                  = string
       port                  = number

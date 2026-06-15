@@ -95,6 +95,7 @@ variable "alb_listener_rules" {
     priority     = number
     host_header  = optional(list(string), [])
     path_pattern = optional(list(string), [])
+    target_ips   = optional(list(string), [])
     target_group = object({
       name                  = string
       port                  = number

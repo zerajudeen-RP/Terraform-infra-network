@@ -76,7 +76,29 @@ alb_idle_timeout    = 60
 #     }
 #   }
 # ]
-alb_listener_rules = []
+alb_listener_rules = [
+  {
+    priority     = 10
+    host_header  = []
+    path_pattern = ["/*"]
+    target_ips   = ["10.220.128.99"]   # workload EC2 private IP
+    target_group = {
+      name                  = "workload-ec2"
+      port                  = 80
+      protocol              = "HTTP"
+      target_type           = "ip"
+      health_check_path     = "/"
+      health_check_protocol = "HTTP"
+      health_check_matcher  = "200-499"
+      health_check_interval = 30
+      health_check_timeout  = 5
+      healthy_threshold     = 2
+      unhealthy_threshold   = 2
+      stickiness_enabled    = false
+      deregistration_delay  = 30
+    }
+  }
+]
 
 ###############################################################
 # RAM — TGW sharing

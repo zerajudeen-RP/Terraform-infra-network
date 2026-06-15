@@ -83,32 +83,27 @@ resource "aws_lb_target_group" "default" {
 ###############################################################
 # Listener — HTTP/80
 #
-# When http_redirect_to_https = true  → 301 redirect to HTTPS.
-# When http_redirect_to_https = false → forward to default TG.
+# When http_redirect_to_https = true AND HTTPS listener exists → 301 redirect.
+# Otherwise → forward to default TG (used when no cert is present).
 ###############################################################
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.this.arn
   port              = 80
   protocol          = "HTTP"
 
-  dynamic "default_action" {
-    for_each = var.http_redirect_to_https ? [1] : []
-    content {
-      type = "redirect"
-      redirect {
+  default_action {
+    type = var.http_redirect_to_https && var.enable_https ? "redirect" : "forward"
+
+    dynamic "redirect" {
+      for_each = var.http_redirect_to_https && var.enable_https ? [1] : []
+      content {
         port        = "443"
         protocol    = "HTTPS"
         status_code = "HTTP_301"
       }
     }
-  }
 
-  dynamic "default_action" {
-    for_each = var.http_redirect_to_https ? [] : [1]
-    content {
-      type             = "forward"
-      target_group_arn = aws_lb_target_group.default.arn
-    }
+    target_group_arn = var.http_redirect_to_https && var.enable_https ? null : aws_lb_target_group.default.arn
   }
 
   tags = merge(var.tags, {
@@ -196,11 +191,36 @@ resource "aws_lb_target_group" "rules" {
 }
 
 ###############################################################
-# Listener rules — host/path-based routing
+# Per-rule target group IP registrations
 #
-# Rules only apply when the HTTPS listener exists.
-# Both host_header and path_pattern are optional.
-# If both are specified they are AND-ed together.
+# Flattens the target_ips list from each listener rule into
+# individual aws_lb_target_group_attachment resources so EC2
+# private IPs can be registered directly from tfvars.
+# Each attachment key is "<tg_name>/<ip>" for uniqueness.
+###############################################################
+locals {
+  target_registrations = flatten([
+    for r in var.listener_rules : [
+      for ip in r.target_ips : {
+        key  = "${r.target_group.name}/${ip}"
+        name = r.target_group.name
+        ip   = ip
+        port = r.target_group.port
+      }
+    ]
+  ])
+}
+
+resource "aws_lb_target_group_attachment" "rule_targets" {
+  for_each = { for t in local.target_registrations : t.key => t }
+
+  target_group_arn  = aws_lb_target_group.rules[each.value.name].arn
+  target_id         = each.value.ip
+  port              = each.value.port
+  availability_zone = "all" # required for IP targets outside the ALB's VPC (cross-VPC via TGW)
+}
+# When HTTPS listener exists, rules attach to it.
+# When only HTTP listener exists (no cert), rules attach to HTTP.
 ###############################################################
 resource "aws_lb_listener_rule" "rules" {
   for_each = var.enable_https ? { for r in var.listener_rules : r.target_group.name => r } : {}
@@ -233,5 +253,40 @@ resource "aws_lb_listener_rule" "rules" {
 
   tags = merge(var.tags, {
     Name = "${var.name}-${var.environment}-alb-rule-${each.key}"
+  })
+}
+
+# HTTP listener rules — used when no cert is present (enable_https = false)
+resource "aws_lb_listener_rule" "http_rules" {
+  for_each = !var.enable_https ? { for r in var.listener_rules : r.target_group.name => r } : {}
+
+  listener_arn = aws_lb_listener.http.arn
+  priority     = each.value.priority
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.rules[each.key].arn
+  }
+
+  dynamic "condition" {
+    for_each = length(each.value.host_header) > 0 ? [each.value.host_header] : []
+    content {
+      host_header {
+        values = condition.value
+      }
+    }
+  }
+
+  dynamic "condition" {
+    for_each = length(each.value.path_pattern) > 0 ? [each.value.path_pattern] : []
+    content {
+      path_pattern {
+        values = condition.value
+      }
+    }
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.name}-${var.environment}-alb-http-rule-${each.key}"
   })
 }
