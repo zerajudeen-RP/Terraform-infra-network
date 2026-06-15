@@ -1,15 +1,7 @@
 ###############################################################
 # Module: ipam
-# Simply looks up and exposes the existing IPAM pool ID/ARN.
-# Each VPC allocates its own CIDR directly from the pool
-# via ipv4_ipam_pool_id on the aws_vpc resource.
-# No separate allocation resources needed here — doing so
-# would create a second allocation and cause CIDR mismatch.
+# Passes through the existing IPAM pool ID.
+# The data source lookup was removed — it caused 20+ minute
+# hangs due to AWS IPAM API throttling/timeouts.
+# The pool ID is already known and passed in via var.ipam_pool_id.
 ###############################################################
-
-data "aws_vpc_ipam_pool" "this" {
-  filter {
-    name   = "ipam-pool-id"
-    values = [var.ipam_pool_id]
-  }
-}

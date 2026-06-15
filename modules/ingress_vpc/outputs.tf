@@ -15,6 +15,11 @@ output "nlb_subnet_ids" {
   value = aws_subnet.nlb[*].id
 }
 
+output "firewall_subnet_ids" {
+  description = "Firewall subnet IDs — pass to ingress NFW module"
+  value       = aws_subnet.firewall[*].id
+}
+
 output "alb_subnet_ids" {
   value = aws_subnet.alb[*].id
 }
@@ -33,4 +38,9 @@ output "alb_security_group_id" {
 
 output "internet_gateway_id" {
   value = aws_internet_gateway.this.id
+}
+
+output "igw_edge_route_table_ids" {
+  description = "IGW edge route table ID — used by root to add NFW endpoint routes"
+  value       = [aws_route_table.igw_edge.id]
 }

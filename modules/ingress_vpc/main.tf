@@ -1,18 +1,25 @@
 ###############################################################
 # Module: ingress_vpc
-# Centralized Ingress VPC — IGW + NLB + ALB + TGW
-# CIDR: allocated from IPAM
+# Centralized Ingress VPC — IGW + NFW + NLB + ALB + TGW
+# CIDR: allocated from IPAM (/23)
+#
+# Confirmed inbound traffic flow (architect-approved):
+#   Internet → IGW → IGW Edge Association RT
+#   → NFW VPC Endpoint (firewall subnets, per AZ)
+#   → NLB subnet → NLB
+#   → ALB subnet → ALB (+WAF)
+#   → TGW → Workload EC2
 #
 # Route table summary:
-#   NLB subnet RT  : 0.0.0.0/0 → IGW  (internet-facing, direct)
-#   ALB subnet RT  : <spoke-cidr> → TGW (forward to workload)
-#   TGW attach RT  : local only
-#
-# GWLBe inspection on ingress is removed — AWS Network Firewall
-# in the inspect VPC handles all inspection via the egress path.
-# Adding a GWLB bump-in-the-wire on inbound requires a running
-# firewall appliance registered in the GWLB target group; without
-# targets the GWLB drops all traffic and the NLB is unreachable.
+#   IGW edge RT    : <nlb-cidr>/27 → NFW endpoint (per AZ)
+#                    <alb-cidr>/28 → NFW endpoint (per AZ)
+#   Firewall RT    : 0.0.0.0/0 → IGW
+#                    <vpc-cidr> → local
+#   NLB subnet RT  : 0.0.0.0/0 → NFW endpoint (return path inspected)
+#   ALB subnet RT  : <spoke-cidr> → TGW
+#                    0.0.0.0/0 → NFW endpoint (return path inspected)
+#   TGW attach RT  : <nlb-cidr> → NFW endpoint
+#                    <alb-cidr> → NFW endpoint
 ###############################################################
 
 ###############################################################
@@ -43,48 +50,48 @@ resource "aws_internet_gateway" "this" {
 }
 
 ###############################################################
-# Subnet CIDR calculations using cidrsubnet()
+# Subnet CIDR calculations
 #
-# VPC is a /23 (512 IPs). Layout:
-#   newbits = 5 gives /28 (23+5=28), newbits = 2 gives /25 (not needed here)
-#   For NLB we need /27 so newbits = 4 (23+4=27)
-#   For ALB/GWLBe/TGW we use /28 so newbits = 5 (23+5=28)
+# VPC is a /23 (512 IPs). newbits from /23:
+#   +4 = /27 (32 IPs) for NLB and ALB (architect requires /27 min for ALB scaling)
+#   +5 = /28 (16 IPs) for firewall and TGW
 #
-# The /23 has 32 x /28 slots. We group by AZ:
-#   AZ-a: slots 0-7   (first 128 IPs)
-#   AZ-b: slots 8-15  (next 128 IPs)
-#   AZ-c: slots 16-23 (next 128 IPs)
-#
-# Per AZ layout:
-#   slot+0 (/27)  → NLB     (slots 0,1 consumed — /27 = 2x /28)
-#   slot+2 (/28)  → ALB
-#   slot+3 (/28)  → GWLBe
-#   slot+4 (/28)  → TGW
+# Per-AZ slot layout (/27 units, newbits=4):
+#   AZ-a: slot 0 (/27 NLB), slot 1 (/27 ALB), /28 slots 4+5 (FW+TGW)
+#   AZ-b: slot 4 (/27 NLB), slot 5 (/27 ALB), /28 slots 12+13 (FW+TGW)
+#   AZ-c: slot 8 (/27 NLB), slot 9 (/27 ALB), /28 slots 20+21 (FW+TGW)
 ###############################################################
 locals {
   vpc_cidr = aws_vpc.this.cidr_block
 
-  # /27 subnets for NLB (newbits=4 because /23+4=/27)
+  # /27 — NLB (newbits=4)
   nlb_subnet_cidrs = [
     cidrsubnet(local.vpc_cidr, 4, 0),  # AZ-a
     cidrsubnet(local.vpc_cidr, 4, 4),  # AZ-b
     cidrsubnet(local.vpc_cidr, 4, 8),  # AZ-c
   ]
-  # /28 subnets (newbits=5 because /23+5=/28)
+  # /27 — ALB (newbits=4) — architect requires /27 minimum for ALB scaling headroom
   alb_subnet_cidrs = [
+    cidrsubnet(local.vpc_cidr, 4, 1),  # AZ-a
+    cidrsubnet(local.vpc_cidr, 4, 5),  # AZ-b
+    cidrsubnet(local.vpc_cidr, 4, 9),  # AZ-c
+  ]
+  # /28 — Firewall / NFW endpoints (newbits=5)
+  firewall_subnet_cidrs = [
     cidrsubnet(local.vpc_cidr, 5, 4),  # AZ-a
     cidrsubnet(local.vpc_cidr, 5, 12), # AZ-b
     cidrsubnet(local.vpc_cidr, 5, 20), # AZ-c
   ]
+  # /28 — TGW (newbits=5)
   tgw_subnet_cidrs = [
-    cidrsubnet(local.vpc_cidr, 5, 6),  # AZ-a
-    cidrsubnet(local.vpc_cidr, 5, 14), # AZ-b
-    cidrsubnet(local.vpc_cidr, 5, 22), # AZ-c
+    cidrsubnet(local.vpc_cidr, 5, 5),  # AZ-a
+    cidrsubnet(local.vpc_cidr, 5, 13), # AZ-b
+    cidrsubnet(local.vpc_cidr, 5, 21), # AZ-c
   ]
 }
 
 ###############################################################
-# Subnets — NLB (/27 per AZ — larger for NLB node IPs)
+# Subnets — NLB (/27 per AZ)
 ###############################################################
 resource "aws_subnet" "nlb" {
   count                   = length(var.azs)
@@ -100,7 +107,22 @@ resource "aws_subnet" "nlb" {
 }
 
 ###############################################################
-# Subnets — ALB (/28 per AZ)
+# Subnets — Firewall / NFW endpoints (/28 per AZ)
+###############################################################
+resource "aws_subnet" "firewall" {
+  count             = length(var.azs)
+  vpc_id            = aws_vpc.this.id
+  cidr_block        = local.firewall_subnet_cidrs[count.index]
+  availability_zone = var.azs[count.index]
+
+  tags = merge(var.tags, {
+    Name = "${var.name}-${var.environment}-ingress-fw-${substr(var.azs[count.index], -1, 1)}"
+    Tier = "firewall"
+  })
+}
+
+###############################################################
+# Subnets — ALB (/27 per AZ — sized for ALB scaling headroom)
 ###############################################################
 resource "aws_subnet" "alb" {
   count             = length(var.azs)
@@ -130,8 +152,83 @@ resource "aws_subnet" "tgw" {
 }
 
 ###############################################################
+# IGW Edge Association Route Table
+#
+# Attached to the IGW itself (gateway route table).
+# Intercepts inbound packets before they reach the NLB/ALB.
+# Each NLB and ALB subnet CIDR is redirected to the AZ-local
+# NFW endpoint for inspection first.
+#
+# NFW endpoint IDs are injected after NFW is deployed via
+# var.nfw_endpoint_ids (passed from root module).
+###############################################################
+resource "aws_route_table" "igw_edge" {
+  vpc_id = aws_vpc.this.id
+
+  tags = merge(var.tags, {
+    Name = "${var.name}-${var.environment}-ingress-rt-igw-edge"
+  })
+}
+
+# Attach to IGW (gateway route table association)
+resource "aws_route_table_association" "igw_edge" {
+  gateway_id     = aws_internet_gateway.this.id
+  route_table_id = aws_route_table.igw_edge.id
+}
+
+# NLB subnet CIDRs → NFW endpoint (per AZ)
+resource "aws_route" "igw_to_nfw_for_nlb" {
+  count                  = length(var.azs)
+  route_table_id         = aws_route_table.igw_edge.id
+  destination_cidr_block = local.nlb_subnet_cidrs[count.index]
+  vpc_endpoint_id        = var.nfw_endpoint_ids[count.index]
+}
+
+# ALB subnet CIDRs → NFW endpoint (per AZ)
+resource "aws_route" "igw_to_nfw_for_alb" {
+  count                  = length(var.azs)
+  route_table_id         = aws_route_table.igw_edge.id
+  destination_cidr_block = local.alb_subnet_cidrs[count.index]
+  vpc_endpoint_id        = var.nfw_endpoint_ids[count.index]
+}
+
+###############################################################
+# Route Tables — Firewall Subnets
+#
+# After NFW inspects and approves the packet it returns it
+# to the firewall subnet. From here:
+#   - Internet-bound responses go back to IGW (0.0.0.0/0 → IGW)
+#   - Local VPC traffic stays local
+###############################################################
+resource "aws_route_table" "firewall" {
+  count  = length(var.azs)
+  vpc_id = aws_vpc.this.id
+
+  tags = merge(var.tags, {
+    Name = "${var.name}-${var.environment}-ingress-rt-fw-${substr(var.azs[count.index], -1, 1)}"
+  })
+}
+
+resource "aws_route_table_association" "firewall" {
+  count          = length(var.azs)
+  subnet_id      = aws_subnet.firewall[count.index].id
+  route_table_id = aws_route_table.firewall[count.index].id
+}
+
+# 0.0.0.0/0 → IGW (post-inspection traffic returns toward IGW → NLB)
+resource "aws_route" "firewall_to_igw" {
+  count                  = length(var.azs)
+  route_table_id         = aws_route_table.firewall[count.index].id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.this.id
+}
+
+###############################################################
 # Route Tables — NLB Subnets
-# Direct internet access — 0.0.0.0/0 → IGW
+#
+# Inbound: traffic arrives from NFW (via firewall subnet) — local routing.
+# Return/response: NLB response packets must go back through NFW
+#   so the firewall sees both directions (stateful inspection).
 ###############################################################
 resource "aws_route_table" "nlb" {
   count  = length(var.azs)
@@ -148,20 +245,19 @@ resource "aws_route_table_association" "nlb" {
   route_table_id = aws_route_table.nlb[count.index].id
 }
 
-resource "aws_route" "nlb_to_igw" {
+# 0.0.0.0/0 → NFW endpoint (return traffic also inspected)
+resource "aws_route" "nlb_to_nfw" {
   count                  = length(var.azs)
   route_table_id         = aws_route_table.nlb[count.index].id
   destination_cidr_block = "0.0.0.0/0"
-  gateway_id             = aws_internet_gateway.this.id
+  vpc_endpoint_id        = var.nfw_endpoint_ids[count.index]
 }
 
 ###############################################################
 # Route Tables — ALB Subnets
 #
-# ALB sits internal to the VPC. After processing the request,
-# it forwards traffic to spoke VPCs via TGW.
-# Specific spoke CIDRs → TGW (not a default route, more precise).
-# 0.0.0.0/0 → IGW is NOT added here — ALB is internal only.
+# Spoke CIDRs → TGW (forward to workload VPCs).
+# Return traffic (responses from ALB to internet) → NFW endpoint.
 ###############################################################
 resource "aws_route_table" "alb" {
   count  = length(var.azs)
@@ -178,8 +274,7 @@ resource "aws_route_table_association" "alb" {
   route_table_id = aws_route_table.alb[count.index].id
 }
 
-# Spoke CIDRs → TGW (one route per spoke CIDR)
-# Traffic from ALB to workload VPCs goes via TGW
+# Spoke CIDRs → TGW
 resource "aws_route" "alb_to_tgw_spokes" {
   count                  = length(var.spoke_cidrs)
   route_table_id         = aws_route_table.alb[0].id
@@ -207,13 +302,20 @@ resource "aws_route" "alb_to_tgw_spokes_c" {
   depends_on = [aws_ec2_transit_gateway_vpc_attachment.this]
 }
 
+# 0.0.0.0/0 → NFW endpoint (ALB response traffic inspected)
+resource "aws_route" "alb_to_nfw" {
+  count                  = length(var.azs)
+  route_table_id         = aws_route_table.alb[count.index].id
+  destination_cidr_block = "0.0.0.0/0"
+  vpc_endpoint_id        = var.nfw_endpoint_ids[count.index]
+}
+
 ###############################################################
 # Route Tables — TGW Attachment Subnets
 #
-# These subnets are only used for TGW ENIs.
-# No custom routes needed — local routing only.
-# Return traffic from spoke VPCs arrives here via TGW and
-# is forwarded to the ALB by the VPC local route table.
+# Traffic arriving from TGW (workload → ALB/NLB) must be
+# inspected by NFW before reaching the ALB/NLB.
+# Route NLB and ALB subnet CIDRs → NFW endpoint per AZ.
 ###############################################################
 resource "aws_route_table" "tgw" {
   count  = length(var.azs)
@@ -228,6 +330,22 @@ resource "aws_route_table_association" "tgw" {
   count          = length(var.azs)
   subnet_id      = aws_subnet.tgw[count.index].id
   route_table_id = aws_route_table.tgw[count.index].id
+}
+
+# NLB subnet CIDRs → NFW endpoint
+resource "aws_route" "tgw_to_nfw_for_nlb" {
+  count                  = length(var.azs)
+  route_table_id         = aws_route_table.tgw[count.index].id
+  destination_cidr_block = local.nlb_subnet_cidrs[count.index]
+  vpc_endpoint_id        = var.nfw_endpoint_ids[count.index]
+}
+
+# ALB subnet CIDRs → NFW endpoint
+resource "aws_route" "tgw_to_nfw_for_alb" {
+  count                  = length(var.azs)
+  route_table_id         = aws_route_table.tgw[count.index].id
+  destination_cidr_block = local.alb_subnet_cidrs[count.index]
+  vpc_endpoint_id        = var.nfw_endpoint_ids[count.index]
 }
 
 ###############################################################
@@ -254,7 +372,6 @@ resource "aws_ec2_transit_gateway_route_table_association" "this" {
 # Security Groups
 ###############################################################
 
-# NLB SG — internet-facing, allows 443 + 80
 resource "aws_security_group" "nlb" {
   name        = "${var.name}-${var.environment}-ingress-nlb-sg"
   description = "NLB - allow inbound HTTPS/HTTP from internet"
@@ -273,7 +390,7 @@ resource "aws_security_group" "nlb" {
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-    description = "HTTP from internet (redirect to HTTPS)"
+    description = "HTTP from internet"
   }
 
   egress {
@@ -288,7 +405,6 @@ resource "aws_security_group" "nlb" {
   })
 }
 
-# ALB SG — internal, only accepts traffic from NLB
 resource "aws_security_group" "alb" {
   name        = "${var.name}-${var.environment}-ingress-alb-sg"
   description = "ALB - allow inbound only from NLB security group"
@@ -321,3 +437,8 @@ resource "aws_security_group" "alb" {
     Name = "${var.name}-${var.environment}-ingress-alb-sg"
   })
 }
+
+###############################################################
+# Data sources
+###############################################################
+data "aws_region" "current" {}

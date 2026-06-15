@@ -1,9 +1,4 @@
 output "ipam_pool_id" {
-  description = "IPAM pool ID — pass this to each VPC module"
-  value       = data.aws_vpc_ipam_pool.this.id
-}
-
-output "ipam_pool_arn" {
-  description = "IPAM pool ARN"
-  value       = data.aws_vpc_ipam_pool.this.arn
+  description = "IPAM pool ID — passed through from var.ipam_pool_id"
+  value       = var.ipam_pool_id
 }

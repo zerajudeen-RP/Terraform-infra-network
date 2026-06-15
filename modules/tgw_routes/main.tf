@@ -46,11 +46,6 @@ resource "aws_ec2_transit_gateway_route" "spoke_blackhole" {
 # Used by hub VPCs (inspect, endpoints, ingress)
 ###############################################################
 
-# Return routes — core RT needs to know how to reach each spoke CIDR
-# so that return traffic from NAT/inspect reaches the right spoke VPC
-# These are added per spoke attachment (done in tgw_spoke_attachments via propagation)
-# But for the ingress VPC specifically, add explicit routes:
-
 # Ingress VPC CIDR → ingress attachment (return path for inbound traffic)
 resource "aws_ec2_transit_gateway_route" "core_to_ingress" {
   destination_cidr_block         = var.ingress_vpc_cidr
@@ -70,4 +65,73 @@ resource "aws_ec2_transit_gateway_route" "core_to_endpoints" {
   destination_cidr_block         = var.endpoints_vpc_cidr
   transit_gateway_attachment_id  = var.endpoints_attachment_id
   transit_gateway_route_table_id = var.core_route_table_id
+}
+
+###############################################################
+# RFC 1918 Blackhole routes
+#
+# Deterministically drop traffic to unallocated private address
+# space in both route tables. Prevents non-deterministic routing
+# if Direct Connect or future VPCs are added covering overlapping
+# RFC1918 ranges.
+#
+# Allocated ranges excluded (covered by explicit routes above):
+#   10.220.128.0/17  — hub + workload VPC pool
+#   10.220.192.0/19  — IPAM hub pool
+#
+# Everything else in RFC1918 is blackholed:
+#   10.0.0.0/8 → blackhole (except 10.220.0.0/14 supernet carved out below)
+#   172.16.0.0/12 → blackhole
+#   192.168.0.0/16 → blackhole
+###############################################################
+
+# Core RT — blackhole unallocated 10.x space
+# Use the largest non-overlapping blocks outside 10.220.0.0/14
+resource "aws_ec2_transit_gateway_route" "core_blackhole_10_0" {
+  destination_cidr_block         = "10.0.0.0/9"
+  blackhole                      = true
+  transit_gateway_route_table_id = var.core_route_table_id
+}
+
+resource "aws_ec2_transit_gateway_route" "core_blackhole_10_128" {
+  destination_cidr_block         = "10.128.0.0/9"
+  blackhole                      = true
+  transit_gateway_route_table_id = var.core_route_table_id
+}
+
+resource "aws_ec2_transit_gateway_route" "core_blackhole_172" {
+  destination_cidr_block         = "172.16.0.0/12"
+  blackhole                      = true
+  transit_gateway_route_table_id = var.core_route_table_id
+}
+
+resource "aws_ec2_transit_gateway_route" "core_blackhole_192" {
+  destination_cidr_block         = "192.168.0.0/16"
+  blackhole                      = true
+  transit_gateway_route_table_id = var.core_route_table_id
+}
+
+# Spoke RT — same blackholes
+resource "aws_ec2_transit_gateway_route" "spoke_blackhole_10_0" {
+  destination_cidr_block         = "10.0.0.0/9"
+  blackhole                      = true
+  transit_gateway_route_table_id = var.spoke_route_table_id
+}
+
+resource "aws_ec2_transit_gateway_route" "spoke_blackhole_10_128" {
+  destination_cidr_block         = "10.128.0.0/9"
+  blackhole                      = true
+  transit_gateway_route_table_id = var.spoke_route_table_id
+}
+
+resource "aws_ec2_transit_gateway_route" "spoke_blackhole_172" {
+  destination_cidr_block         = "172.16.0.0/12"
+  blackhole                      = true
+  transit_gateway_route_table_id = var.spoke_route_table_id
+}
+
+resource "aws_ec2_transit_gateway_route" "spoke_blackhole_192" {
+  destination_cidr_block         = "192.168.0.0/16"
+  blackhole                      = true
+  transit_gateway_route_table_id = var.spoke_route_table_id
 }

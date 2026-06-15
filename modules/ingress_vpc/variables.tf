@@ -24,8 +24,14 @@ variable "tgw_core_rt_id" {
   type = string
 }
 
+variable "nfw_endpoint_ids" {
+  description = "Ordered list of NFW VPC endpoint IDs (one per AZ) — injected from root after ingress NFW is deployed"
+  type        = list(string)
+  default     = []
+}
+
 variable "gwlb_endpoint_service_name" {
-  description = "GWLB endpoint service name from the inspect VPC — kept for interface compatibility, not used"
+  description = "Kept for interface compatibility — not used"
   type        = string
   default     = ""
 }

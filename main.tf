@@ -71,6 +71,11 @@ module "inspect_vpc" {
 
 ###############################################################
 # Ingress VPC — /23 allocated from IPAM
+# Pass nfw_endpoint_ids after ingress_nfw is deployed.
+# On first apply with empty list, NFW routes won't be created.
+# On second apply (or same apply — Terraform resolves the cycle
+# because ingress_nfw depends on ingress_vpc firewall subnets
+# and ingress_vpc routes depend on ingress_nfw endpoints).
 ###############################################################
 module "ingress_vpc" {
   source = "./modules/ingress_vpc"
@@ -86,8 +91,32 @@ module "ingress_vpc" {
   tgw_id         = module.tgw.tgw_id
   tgw_core_rt_id = module.tgw.core_route_table_id
 
-  gwlb_endpoint_service_name = module.inspect_vpc.gwlb_endpoint_service_name
-  spoke_cidrs                = var.spoke_cidrs
+  spoke_cidrs = var.spoke_cidrs
+
+  # NFW endpoint IDs injected after ingress_nfw is created
+  nfw_endpoint_ids = module.ingress_nfw.endpoint_ids
+
+  tags = local.common_tags
+}
+
+###############################################################
+# Ingress NFW — AWS Network Firewall in ingress VPC
+# Deployed in the ingress VPC firewall subnets.
+# Endpoint IDs are passed back to ingress_vpc for route tables.
+###############################################################
+module "ingress_nfw" {
+  source = "./modules/ingress_nfw"
+
+  name        = var.name
+  environment = var.environment
+
+  vpc_id     = module.ingress_vpc.vpc_id
+  subnet_ids = module.ingress_vpc.firewall_subnet_ids
+  azs        = var.azs
+
+  enable_alert_logging = true
+  enable_flow_logging  = true
+  log_retention_days   = var.nfw_log_retention_days
 
   tags = local.common_tags
 }
