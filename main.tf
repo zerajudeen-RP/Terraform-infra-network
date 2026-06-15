@@ -259,7 +259,22 @@ module "alb" {
 }
 
 ###############################################################
-# NLB — Internet-facing, in Ingress VPC NLB subnets
+# WAF — WebACL attached to the internal ALB
+# Provides OWASP Top 10, IP reputation, SQLi, and rate limiting
+###############################################################
+module "waf" {
+  source = "./modules/waf"
+
+  name        = var.name
+  environment = var.environment
+
+  alb_arn            = module.alb.alb_arn
+  rate_limit         = var.waf_rate_limit
+  enable_logging     = true
+  log_retention_days = var.waf_log_retention_days
+
+  tags = local.common_tags
+}
 # Depends on ALB so it can register the ALB ARN as target.
 # alb_target_port must match a port the ALB actually listens on.
 # When no cert is provided, ALB only has HTTP/80, so use 80.

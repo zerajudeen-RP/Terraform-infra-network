@@ -108,6 +108,12 @@ workload_account_ids          = ["034866042265"]  # replace with real account ID
 ram_allow_external_principals = true
 
 ###############################################################
+# WAF
+###############################################################
+waf_rate_limit         = 2000
+waf_log_retention_days = 90
+
+###############################################################
 # Network Firewall
 ###############################################################
 nfw_allowed_domains = [

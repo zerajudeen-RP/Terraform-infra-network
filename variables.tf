@@ -142,8 +142,20 @@ variable "spoke_attachment_ids" {
 }
 
 ###############################################################
-# Network Firewall
+# WAF
 ###############################################################
+variable "waf_rate_limit" {
+  description = "Max requests per 5 minutes per IP before WAF blocks the source"
+  type        = number
+  default     = 2000
+}
+
+variable "waf_log_retention_days" {
+  description = "CloudWatch log retention in days for WAF logs"
+  type        = number
+  default     = 90
+}
+
 variable "nfw_allowed_domains" {
   description = "FQDNs allowlisted for egress through Network Firewall"
   type        = list(string)
