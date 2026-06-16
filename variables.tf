@@ -33,6 +33,21 @@ variable "azs" {
 }
 
 ###############################################################
+# VPC CIDRs
+###############################################################
+variable "ingress_vpc_cidr" {
+  description = "Ingress VPC CIDR — subnets auto-calculated via cidrsubnet()"
+  type        = string
+  default     = "10.220.192.0/21"
+}
+
+variable "inspect_vpc_cidr" {
+  description = "Inspect VPC CIDR — subnets auto-calculated via cidrsubnet()"
+  type        = string
+  default     = "10.220.200.0/22"
+}
+
+###############################################################
 # IPAM
 ###############################################################
 variable "ipam_pool_id" {

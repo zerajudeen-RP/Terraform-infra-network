@@ -2,8 +2,9 @@ variable "core_route_table_id" {
   type = string
 }
 
-variable "spoke_route_table_id" {
-  type = string
+variable "spoke_route_table_ids" {
+  description = "List of spoke route table IDs (stage + prod)"
+  type        = list(string)
 }
 
 variable "inspect_attachment_id" {

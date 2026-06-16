@@ -29,10 +29,18 @@ resource "aws_ec2_transit_gateway_route_table" "core" {
   })
 }
 
-resource "aws_ec2_transit_gateway_route_table" "spoke" {
+resource "aws_ec2_transit_gateway_route_table" "spoke_stage" {
   transit_gateway_id = aws_ec2_transit_gateway.this.id
 
   tags = merge(var.tags, {
-    Name = "${var.name}-${var.environment}-tgw-rt-spoke"
+    Name = "${var.name}-${var.environment}-tgw-rt-spoke-stage"
+  })
+}
+
+resource "aws_ec2_transit_gateway_route_table" "spoke_prod" {
+  transit_gateway_id = aws_ec2_transit_gateway.this.id
+
+  tags = merge(var.tags, {
+    Name = "${var.name}-${var.environment}-tgw-rt-spoke-prod"
   })
 }

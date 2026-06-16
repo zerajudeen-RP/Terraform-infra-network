@@ -1,48 +1,27 @@
-variable "name" {
-  type = string
-}
-
-variable "environment" {
-  type = string
-}
+variable "name" { type = string }
+variable "environment" { type = string }
+variable "azs" { type = list(string) }
+variable "tgw_id" { type = string }
+variable "tgw_core_rt_id" { type = string }
 
 variable "vpc_cidr" {
-  description = "VPC CIDR — only used when ipam_pool_id is empty. When IPAM is active, subnets use aws_vpc.this.cidr_block internally."
+  description = "Inspect VPC CIDR — all subnets calculated from this"
   type        = string
-  default     = ""
-}
-
-variable "azs" {
-  type = list(string)
-}
-
-variable "tgw_id" {
-  type = string
-}
-
-variable "tgw_core_rt_id" {
-  type = string
+  default     = "10.220.200.0/22"
 }
 
 variable "ipam_pool_id" {
-  description = "IPAM pool ID — when set, VPC CIDR is assigned by IPAM"
+  description = "Set to empty string to use hardcoded vpc_cidr"
   type        = string
   default     = ""
 }
 
 variable "ipam_netmask_length" {
-  description = "Netmask length for IPAM VPC allocation"
-  type        = number
-  default     = 22
+  type    = number
+  default = 22
 }
 
 variable "tags" {
   type    = map(string)
   default = {}
-}
-
-variable "nfw_endpoint_ids" {
-  description = "Ordered list of Network Firewall endpoint IDs (one per AZ, aligned with var.azs). When provided, TGW subnet RTs point to NFW instead of GWLBe."
-  type        = list(string)
-  default     = []
 }

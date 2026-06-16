@@ -34,9 +34,14 @@ output "tgw_core_route_table_id" {
   value       = module.tgw.core_route_table_id
 }
 
-output "tgw_spoke_route_table_id" {
-  description = "TGW spoke route table ID"
-  value       = module.tgw.spoke_route_table_id
+output "tgw_spoke_stage_route_table_id" {
+  description = "TGW spoke stage route table ID"
+  value       = module.tgw.spoke_stage_route_table_id
+}
+
+output "tgw_spoke_prod_route_table_id" {
+  description = "TGW spoke prod route table ID"
+  value       = module.tgw.spoke_prod_route_table_id
 }
 
 output "inspect_vpc_id" {
@@ -49,11 +54,6 @@ output "inspect_tgw_attachment_id" {
   value       = module.inspect_vpc.tgw_attachment_id
 }
 
-output "gwlb_endpoint_service_name" {
-  description = "GWLB endpoint service name (used by ingress VPC GWLBe)"
-  value       = module.inspect_vpc.gwlb_endpoint_service_name
-}
-
 output "ingress_vpc_id" {
   description = "Ingress VPC ID"
   value       = module.ingress_vpc.vpc_id
@@ -64,14 +64,14 @@ output "ingress_tgw_attachment_id" {
   value       = module.ingress_vpc.tgw_attachment_id
 }
 
-output "ingress_nlb_subnet_ids" {
-  description = "NLB subnet IDs in Ingress VPC"
-  value       = module.ingress_vpc.nlb_subnet_ids
+output "ingress_nlb_stage_subnet_ids" {
+  description = "NLB Stage subnet IDs in Ingress VPC"
+  value       = module.ingress_vpc.nlb_stage_subnet_ids
 }
 
-output "ingress_alb_subnet_ids" {
-  description = "ALB subnet IDs in Ingress VPC"
-  value       = module.ingress_vpc.alb_subnet_ids
+output "ingress_alb_stage_subnet_ids" {
+  description = "ALB Stage subnet IDs in Ingress VPC"
+  value       = module.ingress_vpc.alb_stage_subnet_ids
 }
 
 output "endpoints_vpc_id" {
@@ -125,42 +125,47 @@ output "nfw_flow_log_group" {
 ###############################################################
 # ALB
 ###############################################################
-output "alb_arn" {
-  description = "Internal ALB ARN"
-  value       = module.alb.alb_arn
+output "alb_demo_arn" {
+  value = module.alb_demo.alb_arn
 }
 
-output "alb_dns_name" {
-  description = "Internal ALB DNS name"
-  value       = module.alb.alb_dns_name
+output "alb_stage_arn" {
+  value = module.alb_stage.alb_arn
 }
 
-output "alb_https_listener_arn" {
-  description = "ALB HTTPS listener ARN"
-  value       = module.alb.https_listener_arn
+output "alb_prod_arn" {
+  value = module.alb_prod.alb_arn
 }
 
-output "alb_rule_target_group_arns" {
-  description = "Map of rule name → target group ARN for workload routing"
-  value       = module.alb.rule_target_group_arns
+output "alb_stage_dns_name" {
+  value = module.alb_stage.alb_dns_name
 }
 
 ###############################################################
 # NLB
 ###############################################################
-output "nlb_arn" {
-  description = "Internet-facing NLB ARN"
-  value       = module.nlb.nlb_arn
+output "nlb_demo_arn" {
+  value = module.nlb_demo.nlb_arn
 }
 
-output "nlb_dns_name" {
-  description = "NLB DNS name — use in Route53 alias records"
-  value       = module.nlb.nlb_dns_name
+output "nlb_stage_arn" {
+  value = module.nlb_stage.nlb_arn
 }
 
-output "nlb_zone_id" {
-  description = "NLB hosted zone ID — for Route53 alias target"
-  value       = module.nlb.nlb_zone_id
+output "nlb_prod_arn" {
+  value = module.nlb_prod.nlb_arn
+}
+
+output "nlb_stage_dns_name" {
+  value = module.nlb_stage.nlb_dns_name
+}
+
+output "nlb_demo_dns_name" {
+  value = module.nlb_demo.nlb_dns_name
+}
+
+output "nlb_prod_dns_name" {
+  value = module.nlb_prod.nlb_dns_name
 }
 
 ###############################################################

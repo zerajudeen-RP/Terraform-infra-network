@@ -10,6 +10,10 @@ output "core_route_table_id" {
   value = aws_ec2_transit_gateway_route_table.core.id
 }
 
-output "spoke_route_table_id" {
-  value = aws_ec2_transit_gateway_route_table.spoke.id
+output "spoke_stage_route_table_id" {
+  value = aws_ec2_transit_gateway_route_table.spoke_stage.id
+}
+
+output "spoke_prod_route_table_id" {
+  value = aws_ec2_transit_gateway_route_table.spoke_prod.id
 }
