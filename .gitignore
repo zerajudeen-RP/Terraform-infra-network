@@ -1,0 +1,7 @@
+tfplan
+LICENSE.txt
+terraform-provider-aws_v5.100.0_x5.exe
+modules.json
+terraform.tfstate
+errored.tfstate
+.terraform
