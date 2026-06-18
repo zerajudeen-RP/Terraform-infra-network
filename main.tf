@@ -217,16 +217,11 @@ module "network_firewall" {
   subnet_ids = module.inspect_vpc.firewall_subnet_ids
   azs        = var.azs
 
-  home_net_cidrs  = concat(var.spoke_cidrs, ["10.220.192.0/19"])
-  allowed_domains = var.nfw_allowed_domains
+  home_net_cidrs = concat(var.spoke_cidrs, ["10.220.192.0/19"])
 
   enable_alert_logging = true
   enable_flow_logging  = true
   log_retention_days   = var.nfw_log_retention_days
-
-  stateful_rule_order           = var.nfw_stateful_rule_order
-  stateful_rule_group_capacity  = var.nfw_stateful_rule_group_capacity
-  stateless_rule_group_capacity = var.nfw_stateless_rule_group_capacity
 
   tags = local.common_tags
 }
@@ -250,6 +245,38 @@ resource "aws_route" "inspect_tgw_to_nfw" {
   # Run: terraform apply -replace=module.inspect_vpc.aws_route.tgw_to_gwlb
   # on first apply to remove the old route before this one is added.
   depends_on = [module.network_firewall, module.inspect_vpc]
+}
+
+###############################################################
+# ACM Certificates — one per environment
+# Certs stay PENDING_VALIDATION until NS delegation is active.
+# Once issued, update ALBs to enable_https = true.
+###############################################################
+module "acm_demo" {
+  source      = "./modules/acm"
+  name        = var.name
+  environment = "demo"
+  domain_name = "demo.au.mosaiclinical.ai"
+  zone_id     = var.hosted_zone_ids["demo"]
+  tags        = local.common_tags
+}
+
+module "acm_stage" {
+  source      = "./modules/acm"
+  name        = var.name
+  environment = "stage"
+  domain_name = "stage.au.mosaiclinical.ai"
+  zone_id     = var.hosted_zone_ids["stage"]
+  tags        = local.common_tags
+}
+
+module "acm_prod" {
+  source      = "./modules/acm"
+  name        = var.name
+  environment = "prod"
+  domain_name = "prod.au.mosaiclinical.ai"
+  zone_id     = var.hosted_zone_ids["prod"]
+  tags        = local.common_tags
 }
 
 ###############################################################

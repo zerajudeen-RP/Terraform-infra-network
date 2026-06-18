@@ -1,6 +1,5 @@
 output "endpoint_ids" {
-  description = "Ordered list of NFW endpoint IDs aligned with var.subnet_ids — pass to ingress_vpc as nfw_endpoint_ids"
-  value       = local.endpoint_ids
+  value = local.endpoint_ids
 }
 
 output "firewall_arn" {

@@ -35,11 +35,13 @@ inspect_vpc_cidr = "10.220.200.0/22"
 # Used for TGW blackhole routes and endpoint security group rules.
 ###############################################################
 spoke_cidrs = [
-  "10.220.128.0/21"  # Stage workload VPC — placeholder until workload is deployed
+  "10.220.144.0/20",  # Stage shared-rsc VPC
+  "10.220.128.0/22",  # Stage radpair VPC
 ]
 
 spoke_attachment_ids = {
-  "stage-workload" = "tgw-attach-0af4d927a43fe17c3"
+  "stage-shared-rsc" = "tgw-attach-037f2511ddc07a860"
+  "stage-radpair"    = "tgw-attach-002e02f7c2b935074"
 }
 
 ###############################################################

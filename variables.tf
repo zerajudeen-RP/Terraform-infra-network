@@ -157,6 +157,19 @@ variable "spoke_attachment_ids" {
 }
 
 ###############################################################
+# DNS / ACM
+###############################################################
+variable "hosted_zone_ids" {
+  description = "Map of environment → Route53 hosted zone ID for ACM DNS validation"
+  type        = map(string)
+  default = {
+    demo  = "Z09690223MWBLWOIKW9JD"
+    stage = "Z0293442X6PTYCI5Y0UC"
+    prod  = "Z0969524326KA0X8J4IWY"
+  }
+}
+
+###############################################################
 # WAF
 ###############################################################
 variable "waf_rate_limit" {

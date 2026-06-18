@@ -1,29 +1,30 @@
 variable "name" { type = string }
 variable "environment" { type = string }
-
-variable "vpc_id" {
-  type        = string
-  description = "Ingress VPC ID"
-}
-
-variable "subnet_ids" {
-  type        = list(string)
-  description = "Firewall subnet IDs in the ingress VPC (one per AZ)"
-}
-
-variable "azs" {
-  type        = list(string)
-  description = "Availability zones — must match order of subnet_ids"
-}
-
-variable "stateless_rule_group_capacity" {
-  type    = number
-  default = 100
-}
+variable "vpc_id" { type = string }
+variable "subnet_ids" { type = list(string) }
+variable "azs" { type = list(string) }
 
 variable "stateful_rule_group_capacity" {
   type    = number
-  default = 1000
+  default = 10000
+}
+
+variable "nlb_public_ips" {
+  description = "NLB public EIPs in CIDR notation. Update after NLB is deployed."
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "nlb_private_cidrs" {
+  description = "NLB subnet CIDRs"
+  type        = list(string)
+  default     = ["10.220.192.0/21"]
+}
+
+variable "alb_private_cidrs" {
+  description = "ALB subnet CIDRs"
+  type        = list(string)
+  default     = ["10.220.192.0/21"]
 }
 
 variable "enable_alert_logging" {

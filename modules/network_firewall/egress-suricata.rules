@@ -1,0 +1,2 @@
+pass ip $HOME_NET any -> any any (msg:"Allow all outbound from HOME_NET"; sid:100000; rev:1;)
+pass ip any any -> $HOME_NET any (msg:"Allow all return traffic to HOME_NET"; sid:100010; rev:1;)
