@@ -157,15 +157,30 @@ variable "spoke_attachment_ids" {
 }
 
 ###############################################################
+# Cross-account routes — selective spoke-to-spoke access
+# Replaces blackholes with active routes for specific CIDRs.
+# Example: vendor account needs to reach shared-services account.
+###############################################################
+variable "cross_account_routes" {
+  description = "List of cross-account routes allowing specific spoke-to-spoke communication"
+  type = list(object({
+    spoke_rt_id   = string  # TGW spoke route table ID
+    cidr          = string  # Destination CIDR to make routable
+    attachment_id = string  # TGW attachment ID to route to
+  }))
+  default = []
+}
+
+###############################################################
 # DNS / ACM
 ###############################################################
 variable "hosted_zone_ids" {
   description = "Map of environment → Route53 hosted zone ID for ACM DNS validation"
   type        = map(string)
   default = {
-    demo  = "Z09690223MWBLWOIKW9JD"
-    stage = "Z0293442X6PTYCI5Y0UC"
-    prod  = "Z0969524326KA0X8J4IWY"
+    demo  = "Z05688501NLEX5AIPBZXY"
+    stage = "Z05454302E3MNWGGKFRL2"
+    prod  = "Z099648218XXV3EX1623D"
   }
 }
 

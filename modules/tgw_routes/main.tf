@@ -4,12 +4,23 @@
 # Spoke routes are created in BOTH spoke_stage and spoke_prod RTs
 # with identical routes — isolation is via TGW attachment association,
 # not route content.
+#
+# Cross-account routes: specific CIDRs can be excluded from
+# blackholes and replaced with active routes to allow controlled
+# spoke-to-spoke communication (e.g., vendor → shared-services).
 ###############################################################
 
 locals {
   spoke_rt_ids = var.spoke_route_table_ids
 
-  # Flatten spoke RT × spoke CIDR for blackhole routes
+  # Build a set of "rt_id-cidr" keys that should NOT be blackholed
+  # because they have a cross-account active route instead
+  cross_account_keys = toset([
+    for r in var.cross_account_routes : "${r.spoke_rt_id}-${r.cidr}"
+  ])
+
+  # Flatten spoke RT × spoke CIDR for blackhole routes,
+  # EXCLUDING any that have a cross-account route defined
   spoke_blackholes = flatten([
     for rt_idx, rt_id in local.spoke_rt_ids : [
       for cidr in var.spoke_cidrs : {
@@ -17,6 +28,7 @@ locals {
         rt_id = rt_id
         cidr  = cidr
       }
+      if !contains(local.cross_account_keys, "${rt_id}-${cidr}")
     ]
   ])
 }
@@ -55,6 +67,18 @@ resource "aws_ec2_transit_gateway_route" "spoke_blackhole" {
   destination_cidr_block         = each.value.cidr
   blackhole                      = true
   transit_gateway_route_table_id = each.value.rt_id
+}
+
+# Cross-account active routes — replace blackholes for specific
+# spoke-to-spoke communication (e.g., vendor → shared-services)
+resource "aws_ec2_transit_gateway_route" "cross_account" {
+  for_each = {
+    for r in var.cross_account_routes : "${r.spoke_rt_id}-${r.cidr}" => r
+  }
+
+  destination_cidr_block         = each.value.cidr
+  transit_gateway_attachment_id  = each.value.attachment_id
+  transit_gateway_route_table_id = each.value.spoke_rt_id
 }
 
 # RFC1918 blackholes in spoke RTs

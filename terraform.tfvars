@@ -37,12 +37,29 @@ inspect_vpc_cidr = "10.220.200.0/22"
 spoke_cidrs = [
   "10.220.144.0/20",  # Stage shared-rsc VPC
   "10.220.128.0/22",  # Stage radpair VPC
+  "10.220.0.0/20",    # Prod shared-rsc VPC
+  "10.220.16.0/20",   # Prod radpair VPC
+  "10.220.136.0/22"   # Stage vendor vpc
 ]
 
 spoke_attachment_ids = {
   "stage-shared-rsc" = "tgw-attach-037f2511ddc07a860"
   "stage-radpair"    = "tgw-attach-002e02f7c2b935074"
+  "stage-vendor-stage" = "tgw-attach-0ff4bd8436ba0b8d9"
 }
+
+###############################################################
+# Cross-account routes
+# Replace blackholes with active routes for spoke-to-spoke access.
+# Vendor (10.220.136.0/22) needs to reach shared-rsc VPC only
+###############################################################
+cross_account_routes = [
+  {
+    spoke_rt_id   = "tgw-rtb-02a8ab2d890f8c7a4"  # Spoke Stage RT
+    cidr          = "10.220.144.0/20"              # Stage shared-rsc VPC
+    attachment_id = "tgw-attach-037f2511ddc07a860" # Stage shared-rsc attachment
+  },
+]
 
 ###############################################################
 # NLB
@@ -113,7 +130,11 @@ alb_listener_rules = [
 # RAM — TGW sharing
 # Add the 12-digit AWS account ID of each workload account.
 ###############################################################
-workload_account_ids          = ["034866042265"]  # replace with real account ID
+workload_account_ids          = [
+  "034866042265",   # mct shared Stage workload account
+  "960154456714",   # mct shared Prod workload account
+  "776163182457"    # Vendor stage au account
+]
 ram_allow_external_principals = true
 
 ###############################################################

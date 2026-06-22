@@ -157,6 +157,8 @@ module "tgw_routes" {
   endpoints_vpc_cidr = module.endpoints_vpc.vpc_cidr_block
   ingress_vpc_cidr   = module.ingress_vpc.vpc_cidr_block
 
+  cross_account_routes = var.cross_account_routes
+
   tags = local.common_tags
 }
 
@@ -247,37 +249,37 @@ resource "aws_route" "inspect_tgw_to_nfw" {
   depends_on = [module.network_firewall, module.inspect_vpc]
 }
 
-###############################################################
-# ACM Certificates — one per environment
-# Certs stay PENDING_VALIDATION until NS delegation is active.
-# Once issued, update ALBs to enable_https = true.
-###############################################################
-module "acm_demo" {
-  source      = "./modules/acm"
-  name        = var.name
-  environment = "demo"
-  domain_name = "demo.au.mosaiclinical.ai"
-  zone_id     = var.hosted_zone_ids["demo"]
-  tags        = local.common_tags
-}
-
-module "acm_stage" {
-  source      = "./modules/acm"
-  name        = var.name
-  environment = "stage"
-  domain_name = "stage.au.mosaiclinical.ai"
-  zone_id     = var.hosted_zone_ids["stage"]
-  tags        = local.common_tags
-}
-
-module "acm_prod" {
-  source      = "./modules/acm"
-  name        = var.name
-  environment = "prod"
-  domain_name = "prod.au.mosaiclinical.ai"
-  zone_id     = var.hosted_zone_ids["prod"]
-  tags        = local.common_tags
-}
+# ###############################################################
+# # ACM Certificates — one per environment
+# # Certs stay PENDING_VALIDATION until NS delegation is active.
+# # Once issued, update ALBs to enable_https = true.
+# ###############################################################
+# module "acm_demo" {
+#   source      = "./modules/acm"
+#   name        = var.name
+#   environment = "demo"
+#   domain_name = "demo.au.mosaiclinical.ai"
+#   zone_id     = var.hosted_zone_ids["demo"]
+#   tags        = local.common_tags
+# }
+#
+# module "acm_stage" {
+#   source      = "./modules/acm"
+#   name        = var.name
+#   environment = "stage"
+#   domain_name = "stage.au.mosaiclinical.ai"
+#   zone_id     = var.hosted_zone_ids["stage"]
+#   tags        = local.common_tags
+# }
+#
+# module "acm_prod" {
+#   source      = "./modules/acm"
+#   name        = var.name
+#   environment = "prod"
+#   domain_name = "prod.au.mosaiclinical.ai"
+#   zone_id     = var.hosted_zone_ids["prod"]
+#   tags        = local.common_tags
+# }
 
 ###############################################################
 # ALB + NLB + WAF — one per environment (demo, stage, prod)

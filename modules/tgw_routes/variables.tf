@@ -35,6 +35,21 @@ variable "ingress_vpc_cidr" {
   type = string
 }
 
+variable "cross_account_routes" {
+  description = <<-EOT
+    List of cross-account routes that replace blackholes in spoke RTs.
+    Each entry specifies a CIDR that should be routable (not blackholed)
+    from a specific spoke RT, and the TGW attachment to route it to.
+    Example: allow vendor VPC to reach shared-services VPC.
+  EOT
+  type = list(object({
+    spoke_rt_id   = string  # Which spoke RT to add the route to
+    cidr          = string  # Destination CIDR (must also exist in spoke_cidrs)
+    attachment_id = string  # TGW attachment ID to route traffic to
+  }))
+  default = []
+}
+
 variable "tags" {
   type    = map(string)
   default = {}
